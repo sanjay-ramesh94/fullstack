@@ -13,7 +13,7 @@ const checkTimeConflict = (start1, end1, start2, end2) => {
   return (startTime1 < endTime2 && startTime2 < endTime1);
 };
 
-const createMBASeminarBooking = async (req, res) => {
+const createBooking = async (req, res) => {
   try {
     const { 
       name, department, purpose, date, startTime, endTime,
@@ -123,18 +123,7 @@ const createMBASeminarBooking = async (req, res) => {
   }
 };
 
-const getAllMBASeminarBookings = async (req, res) => {
-  try {
-    const bookings = await MBASeminarBooking.find({ isActive: true })
-      .populate('user', 'name email department')
-      .sort({ date: -1, startTime: 1 });
-    res.json(bookings);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-};
-
-const getUserMBASeminarBookings = async (req, res) => {
+const getBookingsByUser = async (req, res) => {
   try {
     const bookings = await MBASeminarBooking.find({
       user: req.user.userId || req.user.id,
@@ -147,7 +136,7 @@ const getUserMBASeminarBookings = async (req, res) => {
   }
 };
 
-const getMBASeminarBookingsForDate = async (req, res) => {
+const getBookingsByDate = async (req, res) => {
   try {
     const { date } = req.params;
     const bookings = await MBASeminarBooking.find({
@@ -164,7 +153,7 @@ const getMBASeminarBookingsForDate = async (req, res) => {
   }
 };
 
-const updateMBASeminarBookingStatus = async (req, res) => {
+const updateBookingStatus = async (req, res) => {
   try {
     const { bookingId } = req.params;
     const { status, adminNote } = req.body;
@@ -189,7 +178,7 @@ const updateMBASeminarBookingStatus = async (req, res) => {
   }
 };
 
-const deleteMBASeminarBooking = async (req, res) => {
+const deleteBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
     
@@ -208,11 +197,75 @@ const deleteMBASeminarBooking = async (req, res) => {
   }
 };
 
+const getAvailableDates = async (req, res) => {
+  try {
+  const bookings = await MBASeminarBooking.find({
+    status: { $in: ['confirmed', 'pending'] },
+    isActive: true
+  }).select('date startTime endTime');
+
+  const bookingsByDate = {};
+  bookings.forEach(booking => {
+    const dateStr = booking.date.toISOString().split('T')[0];
+    if (!bookingsByDate[dateStr]) {
+      bookingsByDate[dateStr] = [];
+    }
+    bookingsByDate[dateStr].push({
+      startTime: booking.startTime,
+      endTime: booking.endTime
+    });
+  });
+
+  const generateAllTimeSlots = () => {
+    const slots = [];
+    for (let hour = 9; hour <= 16; hour++) {
+      for (let minutes = 0; minutes < 60; minutes += 30) {
+        if (hour === 16 && minutes > 30) break;
+        const timeSlot = `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        slots.push(timeSlot);
+      }
+    }
+    return slots;
+  };
+
+  const allTimeSlots = generateAllTimeSlots();
+  const fullyBookedDates = [];
+
+  Object.keys(bookingsByDate).forEach(dateStr => {
+    const dateBookings = bookingsByDate[dateStr];
+    let availableSlots = [...allTimeSlots];
+
+    dateBookings.forEach(booking => {
+      availableSlots = availableSlots.filter(slot => {
+        const slotEnd = addMinutes(slot, 30);
+        return !(slot < booking.endTime && slotEnd > booking.startTime);
+      });
+    });
+
+    if (availableSlots.length === 0) {
+      fullyBookedDates.push(dateStr);
+    }
+  });
+
+    res.json({ fullyBookedDates });
+  } catch (error) {
+    console.error('Error fetching available dates:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+const addMinutes = (timeString, minutes) => {
+  const [hours, mins] = timeString.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours, mins + minutes, 0, 0);
+  return date.toTimeString().slice(0, 5);
+};
+
 module.exports = {
-  createMBASeminarBooking,
-  getAllMBASeminarBookings,
-  getUserMBASeminarBookings,
-  getMBASeminarBookingsForDate,
-  updateMBASeminarBookingStatus,
-  deleteMBASeminarBooking
+  createBooking,
+  getBookingsByDate,
+  getBookingsByUser,
+  updateBookingStatus,
+  deleteBooking,
+  getAvailableDates
 };

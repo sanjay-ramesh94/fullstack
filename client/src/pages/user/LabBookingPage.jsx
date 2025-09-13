@@ -156,6 +156,7 @@ const LabBookingPage = () => {
             <BookingCalendar 
               onDateSelect={setSelectedDate} 
               selectedDate={selectedDate}
+              hallType="lab"
             />
           </div>
 

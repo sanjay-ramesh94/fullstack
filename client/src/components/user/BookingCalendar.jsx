@@ -2,19 +2,19 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../../services/api";
 
-const BookingCalendar = ({ onDateSelect, selectedDate }) => {
+const BookingCalendar = ({ onDateSelect, selectedDate, hallType = 'video-conference' }) => {
   const [fullyBookedDates, setFullyBookedDates] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchAvailableDates();
-  }, []);
+  }, [hallType]);
 
   const fetchAvailableDates = async () => {
     try {
-      const response = await api.get("/booking/available-dates");
-      setFullyBookedDates(response.data.fullyBookedDates);
+      const response = await api.get(`/${hallType}/available-dates`);
+      setFullyBookedDates(response.data.fullyBookedDates || []);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching available dates:", error);

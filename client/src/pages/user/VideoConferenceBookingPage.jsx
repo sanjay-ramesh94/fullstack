@@ -161,6 +161,7 @@ const VideoConferenceBookingPage = () => {
             <BookingCalendar 
               onDateSelect={setSelectedDate} 
               selectedDate={selectedDate}
+              hallType="video-conference"
             />
           </div>
 

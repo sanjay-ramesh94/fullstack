@@ -13,7 +13,7 @@ const checkTimeConflict = (start1, end1, start2, end2) => {
   return (startTime1 < endTime2 && startTime2 < endTime1);
 };
 
-const createConventionCenterBooking = async (req, res) => {
+const createBooking = async (req, res) => {
   try {
     const { 
       name, department, purpose, date, startTime, endTime,
@@ -110,18 +110,7 @@ const createConventionCenterBooking = async (req, res) => {
   }
 };
 
-const getAllConventionCenterBookings = async (req, res) => {
-  try {
-    const bookings = await ConventionCenterBooking.find({ isActive: true })
-      .populate('user', 'name email department')
-      .sort({ date: -1, startTime: 1 });
-    res.json(bookings);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-};
-
-const getUserConventionCenterBookings = async (req, res) => {
+const getBookingsByUser = async (req, res) => {
   try {
     const bookings = await ConventionCenterBooking.find({
       user: req.user.userId || req.user.id,
@@ -134,7 +123,7 @@ const getUserConventionCenterBookings = async (req, res) => {
   }
 };
 
-const getConventionCenterBookingsForDate = async (req, res) => {
+const getBookingsByDate = async (req, res) => {
   try {
     const { date } = req.params;
     const bookings = await ConventionCenterBooking.find({
@@ -151,7 +140,7 @@ const getConventionCenterBookingsForDate = async (req, res) => {
   }
 };
 
-const updateConventionCenterBookingStatus = async (req, res) => {
+const updateBookingStatus = async (req, res) => {
   try {
     const { bookingId } = req.params;
     const { status, adminNote } = req.body;
@@ -176,7 +165,7 @@ const updateConventionCenterBookingStatus = async (req, res) => {
   }
 };
 
-const deleteConventionCenterBooking = async (req, res) => {
+const deleteBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
     
@@ -195,11 +184,84 @@ const deleteConventionCenterBooking = async (req, res) => {
   }
 };
 
+// Get available dates (dates that are not fully booked)
+const getAvailableDates = async (req, res) => {
+  try {
+    // Get all dates with bookings
+    const bookings = await ConventionCenterBooking.find({
+      status: { $in: ['confirmed', 'pending'] },
+      isActive: true
+    }).select('date startTime endTime');
+
+    // Group bookings by date
+    const bookingsByDate = {};
+    bookings.forEach(booking => {
+      const dateStr = booking.date.toISOString().split('T')[0];
+      if (!bookingsByDate[dateStr]) {
+        bookingsByDate[dateStr] = [];
+      }
+      bookingsByDate[dateStr].push({
+        startTime: booking.startTime,
+        endTime: booking.endTime
+      });
+    });
+
+    // Generate all possible time slots (9:00 AM to 4:30 PM, 30-minute intervals)
+    const generateAllTimeSlots = () => {
+      const slots = [];
+      for (let hour = 9; hour <= 16; hour++) {
+        for (let minutes = 0; minutes < 60; minutes += 30) {
+          if (hour === 16 && minutes > 30) break; // Stop at 4:30 PM
+          const timeSlot = `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          slots.push(timeSlot);
+        }
+      }
+      return slots;
+    };
+
+    const allTimeSlots = generateAllTimeSlots();
+    const fullyBookedDates = [];
+
+    // Check each date to see if it's fully booked
+    Object.keys(bookingsByDate).forEach(dateStr => {
+      const dateBookings = bookingsByDate[dateStr];
+      let availableSlots = [...allTimeSlots];
+
+      // Remove booked time slots
+      dateBookings.forEach(booking => {
+        availableSlots = availableSlots.filter(slot => {
+          // Check if this slot conflicts with the booking
+          const slotEnd = addMinutes(slot, 30);
+          return !(slot < booking.endTime && slotEnd > booking.startTime);
+        });
+      });
+
+      // If no slots are available, mark date as fully booked
+      if (availableSlots.length === 0) {
+        fullyBookedDates.push(dateStr);
+      }
+    });
+
+    res.json({ fullyBookedDates });
+  } catch (error) {
+    console.error('Error fetching available dates:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Helper function to add minutes to a time string
+const addMinutes = (timeString, minutes) => {
+  const [hours, mins] = timeString.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours, mins + minutes, 0, 0);
+  return date.toTimeString().slice(0, 5);
+};
+
 module.exports = {
-  createConventionCenterBooking,
-  getAllConventionCenterBookings,
-  getUserConventionCenterBookings,
-  getConventionCenterBookingsForDate,
-  updateConventionCenterBookingStatus,
-  deleteConventionCenterBooking
+  createBooking,
+  getBookingsByDate,
+  getBookingsByUser,
+  updateBookingStatus,
+  deleteBooking,
+  getAvailableDates
 };

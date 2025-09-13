@@ -2,32 +2,32 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const {
-  createMBASeminarBooking,
-  getAllMBASeminarBookings,
-  getUserMBASeminarBookings,
-  getMBASeminarBookingsForDate,
-  updateMBASeminarBookingStatus,
-  deleteMBASeminarBooking
+  createBooking,
+  getBookingsByDate,
+  getBookingsByUser,
+  updateBookingStatus,
+  deleteBooking,
+  getAvailableDates
 } = require('../controllers/mbaSeminarController');
 
 const router = express.Router();
 
-// Create MBA seminar booking
-router.post('/', auth, createMBASeminarBooking);
+// Get available dates (must be before other GET routes)
+router.get('/available-dates', getAvailableDates);
 
-// Get all MBA seminar bookings (admin)
-router.get('/', getAllMBASeminarBookings);
+// Create MBA seminar booking
+router.post('/', auth, createBooking);
 
 // Get user's MBA seminar bookings
-router.get('/my-bookings', auth, getUserMBASeminarBookings);
+router.get('/my-bookings', auth, getBookingsByUser);
 
 // Get MBA seminar bookings for a specific date
-router.get('/date/:date', getMBASeminarBookingsForDate);
+router.get('/date/:date', getBookingsByDate);
 
 // Update MBA seminar booking status (admin)
-router.put('/:bookingId/status', updateMBASeminarBookingStatus);
+router.put('/:bookingId/status', updateBookingStatus);
 
 // Delete MBA seminar booking
-router.delete('/:bookingId', auth, deleteMBASeminarBooking);
+router.delete('/:bookingId', auth, deleteBooking);
 
 module.exports = router;

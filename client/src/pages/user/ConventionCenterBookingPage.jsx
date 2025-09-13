@@ -156,6 +156,7 @@ const ConventionCenterBookingPage = () => {
             <BookingCalendar 
               onDateSelect={setSelectedDate} 
               selectedDate={selectedDate}
+              hallType="convention-center"
             />
           </div>
 

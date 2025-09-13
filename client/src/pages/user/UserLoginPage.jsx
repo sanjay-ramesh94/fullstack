@@ -22,9 +22,9 @@ const UserLoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // If user is already logged in, redirect to booking page
+  // If user is already logged in, redirect to home page
   if (user) {
-    return <Navigate to="/user/booking" />;
+    return <Navigate to="/user" />;
   }
 
   const handleLoginChange = (e) => {
@@ -49,7 +49,7 @@ const UserLoginPage = () => {
     try {
       const response = await api.post('/auth/login/user', loginData);
       login(response.data.token, response.data.user);
-      navigate('/user/booking');
+      navigate('/user');
     } catch (error) {
       setError(error.response?.data?.message || 'Login failed. Please try again.');
     }
@@ -73,7 +73,7 @@ const UserLoginPage = () => {
       const { confirmPassword, ...submitData } = registerData;
       const response = await api.post('/auth/register', submitData);
       login(response.data.token, response.data.user);
-      navigate('/user/booking');
+      navigate('/user');
     } catch (error) {
       setError(error.response?.data?.message || 'Registration failed. Please try again.');
     }
@@ -90,7 +90,7 @@ const UserLoginPage = () => {
             {activeTab === 'login' ? 'Sign in to your account' : 'Create your account'}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Book the video conference hall
+            Access hall booking system
           </p>
         </div>
 
