@@ -13,6 +13,9 @@ import BookingPage from './pages/user/BookingPage';
 import AdminHomePage from './pages/admin/AdminHomePage';
 import AdminLoginPage from './pages/admin/AdminLoginPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminHallSelection from './components/admin/AdminHallSelection';
+import AdminHallDashboard from './components/admin/AdminHallDashboard';
+import AdminAnalytics from './components/admin/AdminAnalytics';
 
 function App() {
   return (
@@ -32,7 +35,9 @@ function App() {
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminHomePage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/dashboard" element={<AdminHallSelection />} />
+            <Route path="/admin/dashboard/:hallId" element={<AdminHallDashboard />} />
+            <Route path="/admin/analytics" element={<AdminAnalytics />} />
           </Routes>
         </div>
       </Router>

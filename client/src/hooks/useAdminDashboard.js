@@ -1,4 +1,4 @@
-// Custom Hooks for Admin Dashboard - FIXED VERSION
+// Custom Hooks for Admin Dashboard
 // src/hooks/useAdminDashboard.js
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../services/api';
@@ -13,7 +13,7 @@ export const useAdminDashboard = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [error, setError] = useState(null);
 
-  // Fetch events for selected date with FIXED filtering logic
+  // Fetch events for selected date with proper filtering for upcoming events
   const fetchEventsForDate = useCallback(async (date) => {
     const dateStr = date.toISOString().split('T')[0];
     
@@ -27,42 +27,50 @@ export const useAdminDashboard = () => {
       // Get current date and time for comparison
       const now = new Date();
       const currentTime = now.getTime();
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const isToday = date.toDateString() === now.toDateString();
+      const isPastDate = date < now.setHours(0, 0, 0, 0);
+      const isFutureDate = date > new Date().setHours(23, 59, 59, 999);
       
-      const selectedDateOnly = new Date(date);
-      selectedDateOnly.setHours(0, 0, 0, 0);
-      
-      // Filter and sort upcoming events with CORRECTED logic
-      const filteredUpcomingEvents = upcomingEvents.filter(event => {
-        // If the selected date is in the future, all events are upcoming
-        if (selectedDateOnly > today) {
-          return true;
-        }
+      let filteredUpcomingEvents = [];
+      let filteredCompletedEvents = [];
+
+      if (isPastDate) {
+        // For past dates, all events should be completed
+        filteredCompletedEvents = [...completedEvents, ...upcomingEvents];
+        filteredUpcomingEvents = [];
+      } else if (isFutureDate) {
+        // For future dates, all events should be upcoming
+        filteredUpcomingEvents = [...upcomingEvents, ...completedEvents];
+        filteredCompletedEvents = [];
+      } else if (isToday) {
+        // For today, filter based on current time vs event time
+        const allEvents = [...completedEvents, ...upcomingEvents];
         
-        // If the selected date is in the past, no events are upcoming
-        if (selectedDateOnly < today) {
-          return false;
-        }
-        
-        // If it's today, check if event start time is in the future
-        const [hours, minutes] = event.startTime.split(':').map(Number);
-        const eventDateTime = new Date(date);
-        eventDateTime.setHours(hours, minutes, 0, 0);
-        
-        return eventDateTime.getTime() > currentTime;
-      }).sort((a, b) => {
-        // Sort by start time
+        allEvents.forEach(event => {
+          const [hours, minutes] = event.startTime.split(':').map(Number);
+          const eventDateTime = new Date(date);
+          eventDateTime.setHours(hours, minutes, 0, 0);
+          
+          if (eventDateTime.getTime() > currentTime) {
+            filteredUpcomingEvents.push(event);
+          } else {
+            filteredCompletedEvents.push(event);
+          }
+        });
+      }
+
+      // Sort upcoming events by start time (earliest first)
+      filteredUpcomingEvents.sort((a, b) => {
         return a.startTime.localeCompare(b.startTime);
       });
 
       // Sort completed events by start time (most recent first)
-      const sortedCompletedEvents = completedEvents.sort((a, b) => {
+      filteredCompletedEvents.sort((a, b) => {
         return b.startTime.localeCompare(a.startTime);
       });
 
       setEvents({
-        completedEvents: sortedCompletedEvents,
+        completedEvents: filteredCompletedEvents,
         upcomingEvents: filteredUpcomingEvents
       });
     } catch (error) {
