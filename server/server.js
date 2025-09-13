@@ -11,6 +11,10 @@ const app = express();
 const authRoutes = require('./routes/auth');
 const bookingRoutes = require('./routes/booking');
 const adminRoutes = require('./routes/admin');
+const videoConferenceRoutes = require('./routes/videoConference');
+const conventionCenterRoutes = require('./routes/conventionCenter');
+const labRoutes = require('./routes/lab');
+const mbaSeminarRoutes = require('./routes/mbaSeminar');
 const config = require('./config/config');
 
 // Import email service (only once)
@@ -33,6 +37,10 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hall_book
 app.use('/api/auth', authRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/video-conference', videoConferenceRoutes);
+app.use('/api/convention-center', conventionCenterRoutes);
+app.use('/api/lab', labRoutes);
+app.use('/api/mba-seminar', mbaSeminarRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

@@ -4,16 +4,25 @@ import React from 'react';
 const HomePage = () => {
   const [currentSlide, setCurrentSlide] = React.useState(0);
   
-  // Handle Book Now button click
-  const handleBookNow = () => {
-    // Option 1: If using React Router
-    // navigate('/login');
-    
-    // Option 2: Simple redirect
-    window.location.href = '/user/login';
-    
-    // Option 3: If login is on different domain
-    // window.location.href = 'https://yourdomain.com/login';
+  // Handle Book Now button click for specific halls
+  const handleBookNow = (hallType) => {
+    // Redirect to specific booking page based on hall type
+    switch(hallType) {
+      case 'video-conference':
+        window.location.href = '/user/video-conference-booking';
+        break;
+      case 'convention-center':
+        window.location.href = '/user/convention-center-booking';
+        break;
+      case 'lab':
+        window.location.href = '/user/lab-booking';
+        break;
+      case 'mba-seminar':
+        window.location.href = '/user/mba-seminar-booking';
+        break;
+      default:
+        window.location.href = '/user/login';
+    }
   };
   
   // Sample carousel images (replace with your actual images)
@@ -41,21 +50,25 @@ const HomePage = () => {
   const halls = [
     {
       name: "Video Conferencing Hall",
+      type: "video-conference",
       image: "/images/cclab.jpg",
       description: "State-of-the-art video conferencing facility equipped with modern technology for seamless virtual meetings and conferences. Perfect for corporate events, academic presentations, and international collaborations."
     },
     {
       name: "Convention Center",
+      type: "convention-center",
       image: "/images/itpark.jpeg",
       description: "Spacious convention center perfect for large gatherings, seminars, cultural events, and academic conferences. Features modern amenities and flexible seating arrangements for various event types."
     },
     {
       name: "Lab",
+      type: "lab",
       image: "/images/lab.jpeg",
       description: "Advanced laboratory equipped with cutting-edge tools for research and experiments. Ideal for scientific studies, workshops, and technical training sessions."
     },
     {
       name: "MBA Seminar Hall",
+      type: "mba-seminar",
       image: "/images/ablock.jpg",
       description: "Elegant seminar hall designed for MBA programs, guest lectures, and professional training. Offers comfortable seating and audio-visual equipment for interactive sessions."
     }
@@ -158,7 +171,7 @@ const HomePage = () => {
                       <button 
                         className="px-8 py-3 rounded-lg text-white font-semibold hover:opacity-90 transition-opacity text-lg"
                         style={{backgroundColor: '#302b5b'}}
-                        onClick={handleBookNow}
+                        onClick={() => handleBookNow(hall.type)}
                       >
                         Book Now
                       </button>
@@ -189,7 +202,7 @@ const HomePage = () => {
                       <button 
                         className="px-8 py-3 rounded-lg text-white font-semibold hover:opacity-90 transition-opacity text-lg"
                         style={{backgroundColor: '#302b5b'}}
-                        onClick={handleBookNow}
+                        onClick={() => handleBookNow(hall.type)}
                       >
                         Book Now
                       </button>

@@ -1,0 +1,569 @@
+// src/components/user/MBASeminarBookingForm.jsx
+import React, { useState, useEffect } from 'react';
+import { api } from '../../services/api';
+
+const MBASeminarBookingForm = ({ selectedDate, existingBookings, onBookingSuccess }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    department: '',
+    purpose: '',
+    startTime: '',
+    endTime: '',
+    sessionType: 'guest-lecture',
+    speakerName: '',
+    speakerDesignation: '',
+    speakerCompany: '',
+    expectedStudents: '',
+    semester: '1st',
+    subject: '',
+    presentationRequired: false,
+    recordingRequired: false,
+    refreshmentsNeeded: false,
+    specialArrangements: ''
+  });
+  const [availableStartTimes, setAvailableStartTimes] = useState([]);
+  const [availableEndTimes, setAvailableEndTimes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Check if selected date is today
+  const isToday = (date) => {
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
+  };
+
+  // Get current time in HH:mm format
+  const getCurrentTime = () => {
+    const now = new Date();
+    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  };
+
+  // Check if a time is in the past for today
+  const isTimeInPast = (timeString) => {
+    if (!isToday(selectedDate)) return false;
+    
+    const currentTime = getCurrentTime();
+    return timeString <= currentTime;
+  };
+
+  // Generate all possible time slots (9:00 AM to 4:30 PM, 30-minute intervals)
+  const generateAllTimeSlots = () => {
+    const slots = [];
+    for (let hour = 9; hour <= 16; hour++) {
+      for (let minutes = 0; minutes < 60; minutes += 30) {
+        if (hour === 16 && minutes > 30) break; // Stop at 4:30 PM
+        const timeSlot = `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        
+        // Skip past times if selected date is today
+        if (isTimeInPast(timeSlot)) continue;
+        
+        slots.push(timeSlot);
+      }
+    }
+    return slots;
+  };
+
+  // Check if a time slot conflicts with existing bookings
+  const isTimeSlotAvailable = (startTime, endTime) => {
+    return !existingBookings.some(booking => {
+      const bookingStart = booking.startTime;
+      const bookingEnd = booking.endTime;
+      
+      // Check if there's any overlap
+      return (startTime < bookingEnd && endTime > bookingStart);
+    });
+  };
+
+  // Filter available start times
+  const getAvailableStartTimes = () => {
+    const allSlots = generateAllTimeSlots();
+    return allSlots.filter(startTime => {
+      // Check if this start time can accommodate at least a 30-minute slot
+      const minEndTime = addMinutes(startTime, 30);
+      return isTimeSlotAvailable(startTime, minEndTime);
+    });
+  };
+
+  // Filter available end times based on selected start time
+  const getAvailableEndTimes = (selectedStartTime) => {
+    if (!selectedStartTime) return [];
+    
+    const allSlots = generateAllTimeSlots();
+    const startIndex = allSlots.indexOf(selectedStartTime);
+    
+    if (startIndex === -1) return [];
+    
+    const availableEndTimes = [];
+    
+    // Check each possible end time after the start time
+    for (let i = startIndex + 1; i < allSlots.length; i++) {
+      const endTime = allSlots[i];
+      
+      // Check if the entire duration from start to this end time is available
+      if (isTimeSlotAvailable(selectedStartTime, endTime)) {
+        availableEndTimes.push(endTime);
+      } else {
+        // If we hit a conflict, we can't use any later end times
+        break;
+      }
+    }
+    
+    return availableEndTimes;
+  };
+
+  // Helper function to add minutes to a time string
+  const addMinutes = (timeString, minutes) => {
+    const [hours, mins] = timeString.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, mins + minutes, 0, 0);
+    return date.toTimeString().slice(0, 5);
+  };
+
+  // Update available times when existingBookings change or selectedDate changes
+  useEffect(() => {
+    const availableStarts = getAvailableStartTimes();
+    setAvailableStartTimes(availableStarts);
+    
+    // Reset form when bookings change or date changes
+    if (formData.startTime && !availableStarts.includes(formData.startTime)) {
+      setFormData(prev => ({ ...prev, startTime: '', endTime: '' }));
+    }
+  }, [existingBookings, selectedDate]);
+
+  // Update available end times when start time changes
+  useEffect(() => {
+    if (formData.startTime) {
+      const availableEnds = getAvailableEndTimes(formData.startTime);
+      setAvailableEndTimes(availableEnds);
+      
+      // Reset end time if it's no longer available
+      if (formData.endTime && !availableEnds.includes(formData.endTime)) {
+        setFormData(prev => ({ ...prev, endTime: '' }));
+      }
+    } else {
+      setAvailableEndTimes([]);
+    }
+  }, [formData.startTime, existingBookings, selectedDate]);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    setError('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.name || !formData.department || !formData.purpose || 
+        !formData.startTime || !formData.endTime || !formData.expectedStudents ||
+        !formData.subject) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    // Final validation - ensure the selected time slot is still available
+    if (!isTimeSlotAvailable(formData.startTime, formData.endTime)) {
+      setError('Selected time slot is no longer available. Please choose another time.');
+      return;
+    }
+
+    // Additional validation for today - ensure start time is not in the past
+    if (isTimeInPast(formData.startTime)) {
+      setError('Cannot book a time slot that has already passed. Please select a future time.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const bookingData = {
+        ...formData,
+        date: selectedDate.toISOString().split('T')[0],
+        expectedStudents: parseInt(formData.expectedStudents)
+      };
+
+      await api.post('/mba-seminar', bookingData);
+      onBookingSuccess();
+    } catch (error) {
+      setError(error.response?.data?.message || 'Failed to create MBA seminar booking');
+    }
+    
+    setLoading(false);
+  };
+
+  // Format time for display
+  const formatTimeForDisplay = (time) => {
+    const [hours, minutes] = time.split(':');
+    const hour12 = hours % 12 || 12;
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  // Get message for no available slots
+  const getNoSlotsMessage = () => {
+    if (isToday(selectedDate)) {
+      const currentTime = getCurrentTime();
+      const current12Hour = formatTimeForDisplay(currentTime);
+      return `All remaining time slots for today are fully booked. Current time: ${current12Hour}`;
+    }
+    return 'All time slots for this date are fully booked. Please select another date.';
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-lg p-6">
+      <h3 className="text-xl font-semibold text-gray-800 mb-6">Book MBA Seminar Hall</h3>
+      
+      {isToday(selectedDate) && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-6">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-blue-800 text-sm">
+              Today's booking - only future time slots are shown (Current time: {formatTimeForDisplay(getCurrentTime())})
+            </p>
+          </div>
+        </div>
+      )}
+      
+      {availableStartTimes.length === 0 && !loading ? (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h4 className="text-lg font-medium text-red-800 mb-2">No Available Slots</h4>
+          <p className="text-red-600">{getNoSlotsMessage()}</p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Personal Information */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter your full name"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-2">
+                Department *
+              </label>
+              <input
+                type="text"
+                id="department"
+                name="department"
+                value={formData.department}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter your department"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="purpose" className="block text-sm font-medium text-gray-700 mb-2">
+              Purpose of Session *
+            </label>
+            <textarea
+              id="purpose"
+              name="purpose"
+              value={formData.purpose}
+              onChange={handleChange}
+              rows="3"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Describe the purpose of your MBA seminar session"
+            />
+          </div>
+
+          {/* MBA Seminar Specific Fields */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="sessionType" className="block text-sm font-medium text-gray-700 mb-2">
+                Session Type *
+              </label>
+              <select
+                id="sessionType"
+                name="sessionType"
+                value={formData.sessionType}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="guest-lecture">Guest Lecture</option>
+                <option value="case-study">Case Study</option>
+                <option value="presentation">Presentation</option>
+                <option value="group-discussion">Group Discussion</option>
+                <option value="workshop">Workshop</option>
+                <option value="exam">Exam</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="expectedStudents" className="block text-sm font-medium text-gray-700 mb-2">
+                Expected Students *
+              </label>
+              <input
+                type="number"
+                id="expectedStudents"
+                name="expectedStudents"
+                value={formData.expectedStudents}
+                onChange={handleChange}
+                min="1"
+                max="100"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Number of students"
+              />
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="semester" className="block text-sm font-medium text-gray-700 mb-2">
+                Semester *
+              </label>
+              <select
+                id="semester"
+                name="semester"
+                value={formData.semester}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="1st">1st Semester</option>
+                <option value="2nd">2nd Semester</option>
+                <option value="3rd">3rd Semester</option>
+                <option value="4th">4th Semester</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
+                Subject *
+              </label>
+              <input
+                type="text"
+                id="subject"
+                name="subject"
+                value={formData.subject}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., Marketing Management, Finance, Operations"
+              />
+            </div>
+          </div>
+
+          {/* Speaker Information (if applicable) */}
+          {(formData.sessionType === 'guest-lecture' || formData.sessionType === 'presentation') && (
+            <div className="bg-gray-50 p-4 rounded-md">
+              <h4 className="text-lg font-medium text-gray-800 mb-4">Speaker Information</h4>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="speakerName" className="block text-sm font-medium text-gray-700 mb-2">
+                    Speaker Name
+                  </label>
+                  <input
+                    type="text"
+                    id="speakerName"
+                    name="speakerName"
+                    value={formData.speakerName}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Name of the speaker"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="speakerDesignation" className="block text-sm font-medium text-gray-700 mb-2">
+                    Speaker Designation
+                  </label>
+                  <input
+                    type="text"
+                    id="speakerDesignation"
+                    name="speakerDesignation"
+                    value={formData.speakerDesignation}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., CEO, Professor, Manager"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label htmlFor="speakerCompany" className="block text-sm font-medium text-gray-700 mb-2">
+                  Speaker Company/Organization
+                </label>
+                <input
+                  type="text"
+                  id="speakerCompany"
+                  name="speakerCompany"
+                  value={formData.speakerCompany}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Company or organization name"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Additional Requirements */}
+          <div className="space-y-3">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="presentationRequired"
+                name="presentationRequired"
+                checked={formData.presentationRequired}
+                onChange={handleChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="presentationRequired" className="ml-2 block text-sm text-gray-700">
+                Presentation Equipment Required
+              </label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="recordingRequired"
+                name="recordingRequired"
+                checked={formData.recordingRequired}
+                onChange={handleChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="recordingRequired" className="ml-2 block text-sm text-gray-700">
+                Session Recording Required
+              </label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="refreshmentsNeeded"
+                name="refreshmentsNeeded"
+                checked={formData.refreshmentsNeeded}
+                onChange={handleChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="refreshmentsNeeded" className="ml-2 block text-sm text-gray-700">
+                Refreshments Needed
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="specialArrangements" className="block text-sm font-medium text-gray-700 mb-2">
+              Special Arrangements
+            </label>
+            <textarea
+              id="specialArrangements"
+              name="specialArrangements"
+              value={formData.specialArrangements}
+              onChange={handleChange}
+              rows="2"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Any special arrangements or requirements"
+            />
+          </div>
+
+          {/* Time Selection */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-2">
+                Start Time *
+              </label>
+              <select
+                id="startTime"
+                name="startTime"
+                value={formData.startTime}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select start time</option>
+                {availableStartTimes.map(time => (
+                  <option key={time} value={time}>
+                    {formatTimeForDisplay(time)}
+                  </option>
+                ))}
+              </select>
+              {availableStartTimes.length > 0 && (
+                <p className="text-xs text-green-600 mt-1">
+                  {availableStartTimes.length} available start time{availableStartTimes.length > 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 mb-2">
+                End Time *
+              </label>
+              <select
+                id="endTime"
+                name="endTime"
+                value={formData.endTime}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!formData.startTime}
+              >
+                <option value="">
+                  {formData.startTime ? 'Select end time' : 'Select start time first'}
+                </option>
+                {availableEndTimes.map(time => (
+                  <option key={time} value={time}>
+                    {formatTimeForDisplay(time)}
+                  </option>
+                ))}
+              </select>
+              {formData.startTime && availableEndTimes.length > 0 && (
+                <p className="text-xs text-green-600 mt-1">
+                  {availableEndTimes.length} available end time{availableEndTimes.length > 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading || availableStartTimes.length === 0}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                Creating Booking...
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Confirm MBA Seminar Booking
+              </>
+            )}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+};
+
+export default MBASeminarBookingForm;

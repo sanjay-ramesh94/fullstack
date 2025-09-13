@@ -8,6 +8,10 @@ import Navbar from './components/common/Navbar'; // ✅ make sure path is correc
 import UserHomePage from './pages/user/UserHomePage';
 import UserLoginPage from './pages/user/UserLoginPage';
 import BookingPage from './pages/user/BookingPage';
+import VideoConferenceBookingPage from './pages/user/VideoConferenceBookingPage';
+import ConventionCenterBookingPage from './pages/user/ConventionCenterBookingPage';
+import LabBookingPage from './pages/user/LabBookingPage';
+import MBASeminarBookingPage from './pages/user/MBASeminarBookingPage';
 
 // Admin pages
 import AdminHomePage from './pages/admin/AdminHomePage';
@@ -31,6 +35,10 @@ function App() {
             <Route path="/user" element={<UserHomePage />} />
             <Route path="/user/login" element={<UserLoginPage />} />
             <Route path="/user/booking" element={<BookingPage />} />
+            <Route path="/user/video-conference-booking" element={<VideoConferenceBookingPage />} />
+            <Route path="/user/convention-center-booking" element={<ConventionCenterBookingPage />} />
+            <Route path="/user/lab-booking" element={<LabBookingPage />} />
+            <Route path="/user/mba-seminar-booking" element={<MBASeminarBookingPage />} />
             
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminHomePage />} />
