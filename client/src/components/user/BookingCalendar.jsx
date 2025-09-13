@@ -9,11 +9,13 @@ const BookingCalendar = ({ onDateSelect, selectedDate, hallType = 'video-confere
 
   useEffect(() => {
     fetchAvailableDates();
-  }, [hallType]);
+  }, [hallType, currentMonth]);
 
   const fetchAvailableDates = async () => {
     try {
-      const response = await api.get(`/${hallType}/available-dates`);
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth() + 1; // JavaScript months are 0-indexed
+      const response = await api.get(`/${hallType}/available-dates?year=${year}&month=${month}`);
       setFullyBookedDates(response.data.fullyBookedDates || []);
       setLoading(false);
     } catch (error) {
@@ -162,15 +164,23 @@ const BookingCalendar = ({ onDateSelect, selectedDate, hallType = 'video-confere
               <button
                 onClick={() => handleDateClick(date)}
                 disabled={isDateDisabled(date)}
-                title={isDateDisabled(date) ? "Fully Booked" : "Available"} // 👈 tooltip
+                title={
+                  date < new Date().setHours(0, 0, 0, 0) 
+                    ? "Past Date" 
+                    : fullyBookedDates.includes(date.toISOString().split("T")[0])
+                    ? "Fully Booked - No Available Time Slots"
+                    : "Available for Booking"
+                }
                 className={`
-                  w-full h-full rounded-lg text-sm font-medium transition-colors
+                  w-full h-full rounded-lg text-sm font-medium transition-colors relative
                   ${
                     isDateSelected(date)
-                      ? "bg-blue-600 text-white"
+                      ? "bg-blue-600 text-white shadow-lg"
                       : isDateDisabled(date)
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "hover:bg-blue-50 text-gray-700"
+                      ? date < new Date().setHours(0, 0, 0, 0)
+                        ? "bg-gray-50 text-gray-300 cursor-not-allowed"
+                        : "bg-red-100 text-red-600 cursor-not-allowed border border-red-200"
+                      : "hover:bg-blue-50 text-gray-700 border border-transparent hover:border-blue-200"
                   }
                 `}
               >
@@ -182,19 +192,32 @@ const BookingCalendar = ({ onDateSelect, selectedDate, hallType = 'video-confere
       </div>
 
       {/* Legend */}
-      <div className="mt-4 flex items-center justify-center space-x-4 text-sm">
-        <div className="flex items-center">
-          <div className="w-4 h-4 bg-blue-600 rounded mr-2"></div>
-          <span>Selected</span>
+      <div className="mt-4 space-y-2">
+        <div className="flex items-center justify-center space-x-4 text-sm">
+          <div className="flex items-center">
+            <div className="w-4 h-4 bg-blue-600 rounded mr-2"></div>
+            <span>Selected</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-4 h-4 bg-red-100 border border-red-200 rounded mr-2"></div>
+            <span>Fully Booked</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-4 h-4 bg-white border-2 border-gray-300 rounded mr-2"></div>
+            <span>Available</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-4 h-4 bg-gray-50 rounded mr-2"></div>
+            <span>Past Date</span>
+          </div>
         </div>
-        <div className="flex items-center">
-          <div className="w-4 h-4 bg-gray-100 rounded mr-2"></div>
-          <span>Fully Booked</span>
-        </div>
-        <div className="flex items-center">
-          <div className="w-4 h-4 bg-white border-2 border-gray-300 rounded mr-2"></div>
-          <span>Available</span>
-        </div>
+        {fullyBookedDates.length > 0 && (
+          <div className="text-center">
+            <p className="text-xs text-red-600 font-medium">
+              {fullyBookedDates.length} fully booked date{fullyBookedDates.length > 1 ? 's' : ''} this month
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

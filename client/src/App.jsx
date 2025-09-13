@@ -20,6 +20,10 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminHallSelection from './components/admin/AdminHallSelection';
 import AdminHallDashboard from './components/admin/AdminHallDashboard';
 import AdminAnalytics from './components/admin/AdminAnalytics';
+import VideoConferenceAdmin from './components/admin/VideoConferenceAdmin';
+import ConventionCenterAdmin from './components/admin/ConventionCenterAdmin';
+import LabAdmin from './components/admin/LabAdmin';
+import MBASeminarAdmin from './components/admin/MBASeminarAdmin';
 
 function App() {
   return (
@@ -45,6 +49,10 @@ function App() {
             <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path="/admin/dashboard" element={<AdminHallSelection />} />
             <Route path="/admin/dashboard/:hallId" element={<AdminHallDashboard />} />
+            <Route path="/admin/video-conference" element={<VideoConferenceAdmin />} />
+            <Route path="/admin/convention-center" element={<ConventionCenterAdmin />} />
+            <Route path="/admin/lab" element={<LabAdmin />} />
+            <Route path="/admin/mba-seminar" element={<MBASeminarAdmin />} />
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
           </Routes>
         </div>

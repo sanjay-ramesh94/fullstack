@@ -1,13 +1,17 @@
 // routes/conventionCenter.js
 const express = require('express');
 const auth = require('../middleware/auth');
-const {
+const { 
   createBooking,
   getBookingsByDate,
   getBookingsByUser,
   updateBookingStatus,
   deleteBooking,
-  getAvailableDates
+  getAvailableDates,
+  // Admin functions
+  getAllBookingsForAdmin,
+  getBookingsByDateForAdmin,
+  getDashboardStats
 } = require('../controllers/conventionCenterController');
 
 const router = express.Router();
@@ -29,5 +33,10 @@ router.put('/:bookingId/status', updateBookingStatus);
 
 // Delete convention center booking
 router.delete('/:bookingId', auth, deleteBooking);
+
+// Admin routes
+router.get('/admin/bookings', auth, getAllBookingsForAdmin);
+router.get('/admin/events/:date', auth, getBookingsByDateForAdmin);
+router.get('/admin/dashboard-stats', auth, getDashboardStats);
 
 module.exports = router;

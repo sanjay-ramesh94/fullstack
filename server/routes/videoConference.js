@@ -8,7 +8,11 @@ const {
   getBookingsByUser,
   updateBookingStatus,
   deleteBooking,
-  getAvailableDates
+  getAvailableDates,
+  // Admin functions
+  getAllBookingsForAdmin,
+  getBookingsByDateForAdmin,
+  getDashboardStats
 } = require('../controllers/videoConferenceController');
 
 // Get available dates (must be before other GET routes)
@@ -28,6 +32,11 @@ router.put('/:bookingId/status', updateBookingStatus);
 
 // Delete video conference booking
 router.delete('/:bookingId', auth, deleteBooking);
+
+// Admin routes
+router.get('/admin/bookings', auth, getAllBookingsForAdmin);
+router.get('/admin/events/:date', auth, getBookingsByDateForAdmin);
+router.get('/admin/dashboard-stats', auth, getDashboardStats);
 
 module.exports = router;
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       

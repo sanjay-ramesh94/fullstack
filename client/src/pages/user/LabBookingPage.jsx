@@ -174,22 +174,67 @@ const LabBookingPage = () => {
                       <span className="ml-2 text-gray-600">Loading bookings...</span>
                     </div>
                   ) : existingBookings.length > 0 ? (
-                    <div className="space-y-2">
-                      {existingBookings.map(booking => (
-                        <div key={booking._id} className="bg-red-50 border border-red-200 rounded p-3">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium text-red-800">
-                              {booking.startTime} - {booking.endTime}
-                            </span>
-                            <span className="text-red-600 text-sm font-medium bg-red-100 px-2 py-1 rounded">
-                              Booked
-                            </span>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm font-medium text-gray-700">
+                          {existingBookings.length} booking{existingBookings.length > 1 ? 's' : ''} scheduled
+                        </span>
+                        <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full">
+                          Time slots unavailable
+                        </span>
+                      </div>
+                      {existingBookings.map(booking => {
+                        // Format time for display
+                        const formatTime = (time) => {
+                          const [hours, minutes] = time.split(':');
+                          const hour12 = hours % 12 || 12;
+                          const ampm = hours >= 12 ? 'PM' : 'AM';
+                          return `${hour12}:${minutes} ${ampm}`;
+                        };
+                        
+                        return (
+                          <div key={booking._id} className="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center">
+                                <div className="w-3 h-3 bg-red-500 rounded-full mr-3"></div>
+                                <span className="font-semibold text-red-800 text-lg">
+                                  {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
+                                </span>
+                              </div>
+                              <span className="text-red-600 text-xs font-medium bg-red-200 px-2 py-1 rounded-full">
+                                {booking.status || 'Confirmed'}
+                              </span>
+                            </div>
+                            <div className="ml-6 space-y-1">
+                              <p className="text-sm font-medium text-red-700">
+                                {booking.purpose}
+                              </p>
+                              <div className="flex items-center space-x-4 text-xs text-red-600">
+                                <span className="flex items-center">
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                  </svg>
+                                  {booking.numberOfStudents} students
+                                </span>
+                                <span className="flex items-center">
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                  </svg>
+                                  {booking.department}
+                                </span>
+                                {booking.labType && (
+                                  <span className="flex items-center">
+                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                    </svg>
+                                    {booking.labType} - {booking.experimentType}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-sm text-red-600 mt-1">
-                            {booking.labType} - {booking.experimentType} ({booking.numberOfStudents} students)
-                          </p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-4">

@@ -39,7 +39,16 @@ const AdminHallSelection = () => {
   ];
 
   const handleHallClick = (hallId, hallName) => {
-    navigate(`/admin/dashboard/${hallId}`, { 
+    // Map hall IDs to specific admin routes
+    const routeMap = {
+      'video-conferencing-hall': '/admin/video-conference',
+      'convention-center': '/admin/convention-center',
+      'lab': '/admin/lab',
+      'mba-seminar-hall': '/admin/mba-seminar'
+    };
+    
+    const route = routeMap[hallId] || `/admin/dashboard/${hallId}`;
+    navigate(route, { 
       state: { hallName, hallId } 
     });
   };
