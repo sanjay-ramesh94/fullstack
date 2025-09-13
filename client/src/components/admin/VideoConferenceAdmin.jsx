@@ -530,41 +530,41 @@ const VideoConferenceAdmin = () => {
               ) : bookings.length > 0 ? (
                 <div className="space-y-4">
                   {bookings.map((booking) => (
-                    <div key={booking._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start mb-3">
+                    <div key={booking._id} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start mb-4">
                         <div>
-                          <h4 className="font-medium text-gray-900">{booking.name}</h4>
-                          <p className="text-sm text-gray-600">{booking.user?.name} • {booking.user?.department}</p>
+                          <h4 className="text-lg font-semibold text-gray-900">{booking.name}</h4>
+                          <p className="text-base text-gray-600 mt-1">{booking.user?.name} • {booking.user?.department}</p>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
+                        <span className={`px-3 py-2 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
                           {booking.status}
                         </span>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
+                      <div className="grid grid-cols-2 gap-6 text-base text-gray-600 mb-4">
                         <div>
-                          <p><strong>Date:</strong> {formatDate(booking.date)}</p>
+                          <p className="mb-2"><strong>Date:</strong> {formatDate(booking.date)}</p>
                           <p><strong>Time:</strong> {formatTime(booking.startTime)} - {formatTime(booking.endTime)}</p>
                         </div>
                         <div>
-                          <p><strong>Type:</strong> {booking.meetingType}</p>
+                          <p className="mb-2"><strong>Type:</strong> {booking.meetingType}</p>
                           <p><strong>Participants:</strong> {booking.expectedParticipants}</p>
                         </div>
                       </div>
                       
-                      <p className="text-sm text-gray-700 mb-3">{booking.purpose}</p>
+                      <p className="text-base text-gray-700 mb-4">{booking.purpose}</p>
                       
                       {booking.status === 'pending' && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                           <button
                             onClick={() => updateBookingStatus(booking._id, 'confirmed')}
-                            className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
                           >
                             Approve
                           </button>
                           <button
                             onClick={() => updateBookingStatus(booking._id, 'cancelled')}
-                            className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+                            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors"
                           >
                             Reject
                           </button>
@@ -572,16 +572,16 @@ const VideoConferenceAdmin = () => {
                       )}
                       
                       {booking.status === 'confirmed' && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                           <button
                             onClick={() => updateBookingStatus(booking._id, 'completed')}
-                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
                           >
                             Mark Complete
                           </button>
                           <button
                             onClick={() => updateBookingStatus(booking._id, 'cancelled')}
-                            className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+                            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors"
                           >
                             Cancel
                           </button>

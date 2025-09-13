@@ -10,15 +10,7 @@ const MBASeminarBookingForm = ({ selectedDate, existingBookings, onBookingSucces
     startTime: '',
     endTime: '',
     sessionType: 'guest-lecture',
-    speakerName: '',
-    speakerDesignation: '',
-    speakerCompany: '',
     expectedStudents: '',
-    semester: '1st',
-    subject: '',
-    presentationRequired: false,
-    recordingRequired: false,
-    refreshmentsNeeded: false,
     specialArrangements: ''
   });
   const [availableStartTimes, setAvailableStartTimes] = useState([]);
@@ -158,8 +150,7 @@ const MBASeminarBookingForm = ({ selectedDate, existingBookings, onBookingSucces
     e.preventDefault();
     
     if (!formData.name || !formData.department || !formData.purpose || 
-        !formData.startTime || !formData.endTime || !formData.expectedStudents ||
-        !formData.subject) {
+        !formData.startTime || !formData.endTime || !formData.expectedStudents) {
       setError('Please fill in all required fields');
       return;
     }
@@ -336,138 +327,6 @@ const MBASeminarBookingForm = ({ selectedDate, existingBookings, onBookingSucces
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="semester" className="block text-sm font-medium text-gray-700 mb-2">
-                Semester *
-              </label>
-              <select
-                id="semester"
-                name="semester"
-                value={formData.semester}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="1st">1st Semester</option>
-                <option value="2nd">2nd Semester</option>
-                <option value="3rd">3rd Semester</option>
-                <option value="4th">4th Semester</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
-                Subject *
-              </label>
-              <input
-                type="text"
-                id="subject"
-                name="subject"
-                value={formData.subject}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., Marketing Management, Finance, Operations"
-              />
-            </div>
-          </div>
-
-          {/* Speaker Information (if applicable) */}
-          {(formData.sessionType === 'guest-lecture' || formData.sessionType === 'presentation') && (
-            <div className="bg-gray-50 p-4 rounded-md">
-              <h4 className="text-lg font-medium text-gray-800 mb-4">Speaker Information</h4>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="speakerName" className="block text-sm font-medium text-gray-700 mb-2">
-                    Speaker Name
-                  </label>
-                  <input
-                    type="text"
-                    id="speakerName"
-                    name="speakerName"
-                    value={formData.speakerName}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Name of the speaker"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="speakerDesignation" className="block text-sm font-medium text-gray-700 mb-2">
-                    Speaker Designation
-                  </label>
-                  <input
-                    type="text"
-                    id="speakerDesignation"
-                    name="speakerDesignation"
-                    value={formData.speakerDesignation}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g., CEO, Professor, Manager"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <label htmlFor="speakerCompany" className="block text-sm font-medium text-gray-700 mb-2">
-                  Speaker Company/Organization
-                </label>
-                <input
-                  type="text"
-                  id="speakerCompany"
-                  name="speakerCompany"
-                  value={formData.speakerCompany}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Company or organization name"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Additional Requirements */}
-          <div className="space-y-3">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="presentationRequired"
-                name="presentationRequired"
-                checked={formData.presentationRequired}
-                onChange={handleChange}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="presentationRequired" className="ml-2 block text-sm text-gray-700">
-                Presentation Equipment Required
-              </label>
-            </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="recordingRequired"
-                name="recordingRequired"
-                checked={formData.recordingRequired}
-                onChange={handleChange}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="recordingRequired" className="ml-2 block text-sm text-gray-700">
-                Session Recording Required
-              </label>
-            </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="refreshmentsNeeded"
-                name="refreshmentsNeeded"
-                checked={formData.refreshmentsNeeded}
-                onChange={handleChange}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="refreshmentsNeeded" className="ml-2 block text-sm text-gray-700">
-                Refreshments Needed
-              </label>
-            </div>
-          </div>
 
           <div>
             <label htmlFor="specialArrangements" className="block text-sm font-medium text-gray-700 mb-2">

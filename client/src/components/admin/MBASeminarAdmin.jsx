@@ -453,7 +453,7 @@ const MBASeminarAdmin = () => {
                             <div className="flex justify-between items-start">
                               <div>
                                 <h4 className="font-medium text-gray-900">{event.name}</h4>
-                                <p className="text-sm text-gray-600">{event.subject}</p>
+                                <p className="text-sm text-gray-600">{event.purpose}</p>
                                 <p className="text-sm text-gray-500">
                                   {formatTime(event.startTime)} - {formatTime(event.endTime)}
                                 </p>
@@ -461,19 +461,10 @@ const MBASeminarAdmin = () => {
                                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSessionTypeColor(event.sessionType)}`}>
                                     {event.sessionType}
                                   </span>
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSemesterColor(event.semester)}`}>
-                                    {event.semester} Semester
-                                  </span>
                                   <span className="text-xs text-gray-500">
                                     {event.expectedStudents} students
                                   </span>
                                 </div>
-                                {event.speakerName && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    Speaker: {event.speakerName}
-                                    {event.speakerCompany && ` (${event.speakerCompany})`}
-                                  </p>
-                                )}
                               </div>
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(event.status)}`}>
                                 {event.status}
@@ -499,16 +490,13 @@ const MBASeminarAdmin = () => {
                             <div className="flex justify-between items-start">
                               <div>
                                 <h4 className="font-medium text-gray-900">{event.name}</h4>
-                                <p className="text-sm text-gray-600">{event.subject}</p>
+                                <p className="text-sm text-gray-600">{event.purpose}</p>
                                 <p className="text-sm text-gray-500">
                                   {formatTime(event.startTime)} - {formatTime(event.endTime)}
                                 </p>
                                 <div className="flex items-center gap-2 mt-1">
                                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSessionTypeColor(event.sessionType)}`}>
                                     {event.sessionType}
-                                  </span>
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSemesterColor(event.semester)}`}>
-                                    {event.semester} Semester
                                   </span>
                                 </div>
                               </div>
@@ -569,70 +557,51 @@ const MBASeminarAdmin = () => {
               ) : bookings.length > 0 ? (
                 <div className="space-y-4">
                   {bookings.map((booking) => (
-                    <div key={booking._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start mb-3">
+                    <div key={booking._id} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start mb-4">
                         <div>
-                          <h4 className="font-medium text-gray-900">{booking.name}</h4>
-                          <p className="text-sm text-gray-600">{booking.user?.name} • {booking.user?.department}</p>
+                          <h4 className="text-lg font-semibold text-gray-900">{booking.name}</h4>
+                          <p className="text-base text-gray-600 mt-1">{booking.user?.name} • {booking.user?.department}</p>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
+                        <span className={`px-3 py-2 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
                           {booking.status}
                         </span>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
+                      <div className="grid grid-cols-2 gap-6 text-base text-gray-600 mb-4">
                         <div>
-                          <p><strong>Date:</strong> {formatDate(booking.date)}</p>
+                          <p className="mb-2"><strong>Date:</strong> {formatDate(booking.date)}</p>
                           <p><strong>Time:</strong> {formatTime(booking.startTime)} - {formatTime(booking.endTime)}</p>
-                          <p><strong>Subject:</strong> {booking.subject}</p>
                         </div>
                         <div>
                           <div className="flex gap-2 mb-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSessionTypeColor(booking.sessionType)}`}>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSessionTypeColor(booking.sessionType)}`}>
                               {booking.sessionType}
-                            </span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSemesterColor(booking.semester)}`}>
-                              {booking.semester} Sem
                             </span>
                           </div>
                           <p><strong>Students:</strong> {booking.expectedStudents}</p>
-                          {booking.speakerName && (
-                            <p><strong>Speaker:</strong> {booking.speakerName}</p>
-                          )}
                         </div>
                       </div>
                       
-                      <p className="text-sm text-gray-700 mb-3">{booking.purpose}</p>
+                      <p className="text-base text-gray-700 mb-4">{booking.purpose}</p>
                       
-                      {booking.speakerCompany && (
-                        <p className="text-xs text-blue-600 mb-2">
-                          Company: {booking.speakerCompany}
+                      {booking.specialArrangements && (
+                        <p className="text-sm text-gray-600 mb-3 bg-gray-50 p-3 rounded">
+                          <strong>Special Arrangements:</strong> {booking.specialArrangements}
                         </p>
                       )}
                       
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {booking.presentationRequired && (
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Presentation Required</span>
-                        )}
-                        {booking.recordingRequired && (
-                          <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Recording Required</span>
-                        )}
-                        {booking.refreshmentsNeeded && (
-                          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Refreshments Needed</span>
-                        )}
-                      </div>
-                      
                       {booking.status === 'pending' && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                           <button
                             onClick={() => updateBookingStatus(booking._id, 'confirmed')}
-                            className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
                           >
                             Approve
                           </button>
                           <button
                             onClick={() => updateBookingStatus(booking._id, 'cancelled')}
-                            className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+                            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors"
                           >
                             Reject
                           </button>
@@ -640,16 +609,16 @@ const MBASeminarAdmin = () => {
                       )}
                       
                       {booking.status === 'confirmed' && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                           <button
                             onClick={() => updateBookingStatus(booking._id, 'completed')}
-                            className="px-3 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700"
+                            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
                           >
                             Mark Complete
                           </button>
                           <button
                             onClick={() => updateBookingStatus(booking._id, 'cancelled')}
-                            className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+                            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors"
                           >
                             Cancel
                           </button>

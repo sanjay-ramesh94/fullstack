@@ -9,14 +9,9 @@ const LabBookingForm = ({ selectedDate, existingBookings, onBookingSuccess }) =>
     purpose: '',
     startTime: '',
     endTime: '',
-    labType: 'computer',
-    experimentType: '',
     numberOfStudents: '',
-    equipmentNeeded: [],
-    safetyRequirements: '',
     supervisorName: '',
     supervisorContact: '',
-    chemicalsRequired: [],
     specialInstructions: ''
   });
   const [availableStartTimes, setAvailableStartTimes] = useState([]);
@@ -152,21 +147,12 @@ const LabBookingForm = ({ selectedDate, existingBookings, onBookingSuccess }) =>
     setError('');
   };
 
-  const handleArrayChange = (e, fieldName) => {
-    const { value, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [fieldName]: checked 
-        ? [...prev[fieldName], value]
-        : prev[fieldName].filter(item => item !== value)
-    }));
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!formData.name || !formData.department || !formData.purpose || 
-        !formData.startTime || !formData.endTime || !formData.experimentType ||
+        !formData.startTime || !formData.endTime ||
         !formData.numberOfStudents || !formData.supervisorName || !formData.supervisorContact) {
       setError('Please fill in all required fields');
       return;
@@ -305,57 +291,20 @@ const LabBookingForm = ({ selectedDate, existingBookings, onBookingSuccess }) =>
           </div>
 
           {/* Lab Specific Fields */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="labType" className="block text-sm font-medium text-gray-700 mb-2">
-                Lab Type *
-              </label>
-              <select
-                id="labType"
-                name="labType"
-                value={formData.labType}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="computer">Computer Lab</option>
-                <option value="physics">Physics Lab</option>
-                <option value="chemistry">Chemistry Lab</option>
-                <option value="biology">Biology Lab</option>
-                <option value="engineering">Engineering Lab</option>
-                <option value="research">Research Lab</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="numberOfStudents" className="block text-sm font-medium text-gray-700 mb-2">
-                Number of Students *
-              </label>
-              <input
-                type="number"
-                id="numberOfStudents"
-                name="numberOfStudents"
-                value={formData.numberOfStudents}
-                onChange={handleChange}
-                min="1"
-                max="60"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Number of students"
-              />
-            </div>
-          </div>
-
           <div>
-            <label htmlFor="experimentType" className="block text-sm font-medium text-gray-700 mb-2">
-              Experiment/Activity Type *
+            <label htmlFor="numberOfStudents" className="block text-sm font-medium text-gray-700 mb-2">
+              Number of Students *
             </label>
             <input
-              type="text"
-              id="experimentType"
-              name="experimentType"
-              value={formData.experimentType}
+              type="number"
+              id="numberOfStudents"
+              name="numberOfStudents"
+              value={formData.numberOfStudents}
               onChange={handleChange}
+              min="1"
+              max="60"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., Data Structures Lab, Organic Chemistry Synthesis, etc."
+              placeholder="Number of students"
             />
           </div>
 
@@ -392,61 +341,6 @@ const LabBookingForm = ({ selectedDate, existingBookings, onBookingSuccess }) =>
             </div>
           </div>
 
-          {/* Equipment and Safety */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Equipment Needed
-            </label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {['Computers', 'Microscopes', 'Projector', 'Chemicals', 'Glassware', 'Instruments'].map(item => (
-                <label key={item} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    value={item}
-                    checked={formData.equipmentNeeded.includes(item)}
-                    onChange={(e) => handleArrayChange(e, 'equipmentNeeded')}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">{item}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="safetyRequirements" className="block text-sm font-medium text-gray-700 mb-2">
-              Safety Requirements
-            </label>
-            <textarea
-              id="safetyRequirements"
-              name="safetyRequirements"
-              value={formData.safetyRequirements}
-              onChange={handleChange}
-              rows="2"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Any special safety precautions or requirements"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Chemicals Required (if applicable)
-            </label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {['Acids', 'Bases', 'Solvents', 'Reagents', 'Indicators', 'Catalysts'].map(item => (
-                <label key={item} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    value={item}
-                    checked={formData.chemicalsRequired.includes(item)}
-                    onChange={(e) => handleArrayChange(e, 'chemicalsRequired')}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">{item}</span>
-                </label>
-              ))}
-            </div>
-          </div>
 
           <div>
             <label htmlFor="specialInstructions" className="block text-sm font-medium text-gray-700 mb-2">

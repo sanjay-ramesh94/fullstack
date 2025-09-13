@@ -11,9 +11,6 @@ const ConventionCenterBookingForm = ({ selectedDate, existingBookings, onBooking
     endTime: '',
     eventType: 'conference',
     expectedAttendees: '',
-    seatingArrangement: 'theater',
-    audioVisualNeeds: [],
-    cateringRequired: false,
     specialRequirements: ''
   });
   const [availableStartTimes, setAvailableStartTimes] = useState([]);
@@ -149,15 +146,6 @@ const ConventionCenterBookingForm = ({ selectedDate, existingBookings, onBooking
     setError('');
   };
 
-  const handleAudioVisualChange = (e) => {
-    const { value, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      audioVisualNeeds: checked 
-        ? [...prev.audioVisualNeeds, value]
-        : prev.audioVisualNeeds.filter(item => item !== value)
-    }));
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -340,59 +328,6 @@ const ConventionCenterBookingForm = ({ selectedDate, existingBookings, onBooking
             </div>
           </div>
 
-          <div>
-            <label htmlFor="seatingArrangement" className="block text-sm font-medium text-gray-700 mb-2">
-              Seating Arrangement
-            </label>
-            <select
-              id="seatingArrangement"
-              name="seatingArrangement"
-              value={formData.seatingArrangement}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="theater">Theater Style</option>
-              <option value="classroom">Classroom Style</option>
-              <option value="u-shape">U-Shape</option>
-              <option value="boardroom">Boardroom</option>
-              <option value="banquet">Banquet Style</option>
-            </select>
-          </div>
-
-          {/* Audio Visual Needs */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Audio Visual Requirements
-            </label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {['projector', 'microphone', 'speakers', 'lighting', 'stage'].map(item => (
-                <label key={item} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    value={item}
-                    checked={formData.audioVisualNeeds.includes(item)}
-                    onChange={handleAudioVisualChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <span className="ml-2 text-sm text-gray-700 capitalize">{item}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="cateringRequired"
-              name="cateringRequired"
-              checked={formData.cateringRequired}
-              onChange={handleChange}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="cateringRequired" className="ml-2 block text-sm text-gray-700">
-              Catering Required
-            </label>
-          </div>
 
           <div>
             <label htmlFor="specialRequirements" className="block text-sm font-medium text-gray-700 mb-2">
