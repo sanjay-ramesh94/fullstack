@@ -224,8 +224,8 @@ const LabAdmin = () => {
   const getLabTypeColor = (labType) => {
     switch (labType) {
       case 'computer': return 'bg-blue-100 text-blue-800';
-      case 'physics': return 'bg-purple-100 text-purple-800';
       case 'chemistry': return 'bg-green-100 text-green-800';
+      case 'physics': return 'bg-purple-100 text-purple-800';
       case 'biology': return 'bg-yellow-100 text-yellow-800';
       case 'engineering': return 'bg-red-100 text-red-800';
       case 'research': return 'bg-indigo-100 text-indigo-800';
@@ -233,13 +233,98 @@ const LabAdmin = () => {
     }
   };
 
+  // Download Report Functions
+  const handleDownloadReport = async (dateRange = 'all', status = 'all') => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        alert('Please log in as admin to download reports');
+        return;
+      }
+      
+      const params = new URLSearchParams({ dateRange, status });
+      const url = `/api/lab/admin/download-report?${params}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        // Try to parse error as JSON first
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Server error: ${response.status}`);
+        } else {
+          throw new Error(`Failed to download report: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      // Check if response is actually a PDF
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('pdf')) {
+        const text = await response.text();
+        console.error('Expected PDF but got:', contentType, text.substring(0, 200));
+        throw new Error('Server returned invalid response. Expected PDF file.');
+      }
+
+      // Get the PDF content as blob
+      const blob = await response.blob();
+      
+      if (blob.size === 0) {
+        throw new Error('Downloaded file is empty');
+      }
+      
+      // Create download link
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      
+      // Set filename with current date
+      const currentDate = new Date().toISOString().split('T')[0];
+      link.download = `lab-report-${dateRange}-${currentDate}.pdf`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 100);
+      
+      console.log('✅ PDF report downloaded successfully');
+    } catch (error) {
+      console.error('❌ Error downloading report:', error);
+      alert(`Failed to download report: ${error.message}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Laboratory Admin</h1>
-          <p className="text-gray-600">Manage laboratory bookings and view analytics</p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Laboratory Admin</h1>
+            <p className="text-gray-600">Manage laboratory bookings and view analytics</p>
+          </div>
+          
+          {/* Download Report Button */}
+          <button
+            onClick={() => handleDownloadReport('all', 'all')}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Download Report
+          </button>
         </div>
 
         {/* Stats Cards */}

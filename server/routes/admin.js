@@ -505,4 +505,106 @@ router.get('/booking/:id', auth, async (req, res) => {
   }
 });
 
+// Export bookings data
+router.get('/export-bookings', auth, async (req, res) => {
+  try {
+    if (req.user.type !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const { format = 'csv', startDate, endDate, status, dateRange } = req.query;
+    
+    // Build filter query
+    let matchQuery = { isActive: true };
+    
+    if (startDate && endDate) {
+      matchQuery.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+    
+    if (status && status !== 'all') {
+      matchQuery.status = status;
+    }
+
+    // Apply date range filter if no specific dates provided
+    if (!startDate && !endDate && dateRange && dateRange !== 'all') {
+      const today = new Date();
+      switch (dateRange) {
+        case 'today':
+          const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          const todayEnd = new Date(todayStart);
+          todayEnd.setDate(todayEnd.getDate() + 1);
+          matchQuery.date = { $gte: todayStart, $lt: todayEnd };
+          break;
+        case 'week':
+          const weekStart = new Date(today);
+          weekStart.setDate(today.getDate() - today.getDay());
+          weekStart.setHours(0, 0, 0, 0);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 7);
+          matchQuery.date = { $gte: weekStart, $lt: weekEnd };
+          break;
+        case 'month':
+          const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+          const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+          matchQuery.date = { $gte: monthStart, $lt: monthEnd };
+          break;
+        case 'year':
+          const yearStart = new Date(today.getFullYear(), 0, 1);
+          const yearEnd = new Date(today.getFullYear() + 1, 0, 1);
+          matchQuery.date = { $gte: yearStart, $lt: yearEnd };
+          break;
+      }
+    }
+
+    // Fetch bookings with user data
+    const bookings = await Booking.find(matchQuery)
+      .populate('user', 'name department email phone')
+      .sort({ date: 1, startTime: 1 });
+
+    if (format === 'csv') {
+      // Generate CSV
+      const csvHeaders = [
+        'ID', 'Name', 'Department', 'Email', 'Phone', 'Date', 'Start Time', 
+        'End Time', 'Hall', 'Purpose', 'Status', 'Created At'
+      ].join(',');
+      
+      const csvRows = bookings.map(booking => [
+        booking._id,
+        booking.user?.name || 'N/A',
+        booking.user?.department || 'N/A',
+        booking.user?.email || 'N/A',
+        booking.user?.phone || 'N/A',
+        new Date(booking.date).toISOString().split('T')[0],
+        booking.startTime,
+        booking.endTime,
+        booking.hallName || 'General Hall',
+        booking.purpose,
+        booking.status,
+        booking.createdAt.toISOString()
+      ].map(field => `"${field}"`).join(','));
+      
+      const csvContent = [csvHeaders, ...csvRows].join('\n');
+      
+      res.header('Content-Type', 'text/csv');
+      res.attachment('bookings-export.csv');
+      return res.send(csvContent);
+    } else if (format === 'xlsx') {
+      // For Excel export, we'll need to install xlsx package
+      // For now, return JSON with instructions
+      return res.status(501).json({ 
+        message: 'Excel export not implemented yet. Please install xlsx package and implement.' 
+      });
+    } else {
+      // Default to JSON
+      res.json(bookings);
+    }
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({ message: 'Server error during export' });
+  }
+});
+
 module.exports = router;

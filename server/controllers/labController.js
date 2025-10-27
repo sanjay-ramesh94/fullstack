@@ -2,6 +2,7 @@
 const LabBooking = require('../models/LabBooking');
 const User = require('../models/User');
 const emailService = require('../services/emailService');
+const PDFDocument = require('pdfkit');
 
 // Check if time slots conflict
 const checkTimeConflict = (start1, end1, start2, end2) => {
@@ -269,6 +270,235 @@ const addMinutes = (timeString, minutes) => {
   return date.toTimeString().slice(0, 5);
 };
 
+const downloadReport = async (req, res) => {
+  try {
+    const { dateRange = 'all', status = 'all' } = req.query;
+    
+    let matchQuery = { isActive: true };
+    
+    // Apply status filter
+    if (status !== 'all') {
+      matchQuery.status = status;
+    }
+    
+    // Apply date range filter
+    const today = new Date();
+    switch (dateRange) {
+      case 'today':
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const todayEnd = new Date(todayStart);
+        todayEnd.setDate(todayEnd.getDate() + 1);
+        matchQuery.date = { $gte: todayStart, $lt: todayEnd };
+        break;
+      case 'week':
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        matchQuery.date = { $gte: weekStart };
+        break;
+      case 'month':
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        matchQuery.date = { $gte: monthStart };
+        break;
+      case 'year':
+        const yearStart = new Date(today.getFullYear(), 0, 1);
+        matchQuery.date = { $gte: yearStart };
+        break;
+    }
+
+    const bookings = await LabBooking.find(matchQuery)
+      .populate('user', 'name email department phone')
+      .sort({ date: -1, startTime: 1 })
+      .lean();
+
+    // Calculate summary statistics
+    const totalBookings = bookings.length;
+    const confirmedBookings = bookings.filter(b => b.status === 'confirmed').length;
+    const completedBookings = bookings.filter(b => b.status === 'completed').length;
+    const pendingBookings = bookings.filter(b => b.status === 'pending').length;
+
+    // Set response headers FIRST
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="laboratory-report-${dateRange}-${new Date().toISOString().split('T')[0]}.pdf"`);
+    res.setHeader('Cache-Control', 'no-cache');
+    
+    // Create PDF document
+    const doc = new PDFDocument({ 
+      margin: 50,
+      bufferPages: true
+    });
+    
+    // Handle stream errors
+    doc.on('error', (err) => {
+      console.error('PDF document error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'PDF generation failed' });
+      }
+    });
+
+    res.on('error', (err) => {
+      console.error('Response stream error:', err);
+    });
+    
+    // Pipe PDF to response
+    doc.pipe(res);
+
+    // Header
+    doc.fontSize(18).font('Times-Bold')
+       .text('KONGU ENGINEERING COLLEGE (AUTONOMOUS)', { align: 'center' })
+       .text('LABORATORY', { align: 'center' })
+       .text('(BOOKING REPORT)', { align: 'center' })
+       .moveDown(2);
+
+    // Report generation date
+    doc.fontSize(12).font('Times-Roman')
+       .text(`Report Generated: ${new Date().toLocaleDateString('en-IN', {
+         year: 'numeric',
+         month: 'long',
+         day: 'numeric',
+         hour: '2-digit',
+         minute: '2-digit'
+       })}`)
+       .text(`Date Range: ${dateRange.toUpperCase()}`)
+       .text(`Status Filter: ${status.toUpperCase()}`)
+       .moveDown(1.5);
+
+    // Summary statistics
+    doc.fontSize(16).font('Times-Bold')
+       .text('SUMMARY STATISTICS:')
+       .moveDown(0.5)
+       .fontSize(12).font('Times-Roman')
+       .text(`Total Lab Sessions: ${totalBookings}`)
+       .text(`Confirmed: ${confirmedBookings}`)
+       .text(`Completed: ${completedBookings}`)
+       .text(`Pending: ${pendingBookings}`)
+       .moveDown(1.5);
+
+    // Booking details header
+    doc.fontSize(16).font('Times-Bold')
+       .text('LAB SESSION DETAILS:')
+       .moveDown(1);
+
+    if (bookings.length === 0) {
+      doc.fontSize(12).font('Times-Roman')
+         .text('No lab sessions found for the selected criteria.');
+    } else {
+      // Table headers
+      const tableTop = doc.y;
+      const tableHeaders = ['Date', 'Time', 'Session', 'Organizer', 'Email', 'Phone', 'Dept', 'Lab Type', 'Experiment', 'Students', 'Status'];
+      const columnWidths = [50, 60, 70, 65, 80, 60, 40, 55, 70, 45, 45];
+      const margin = 50;
+      
+      let currentX = margin;
+
+      doc.fontSize(8).font('Times-Bold');
+      tableHeaders.forEach((header, i) => {
+        doc.text(header, currentX, tableTop, { width: columnWidths[i], align: 'left' });
+        currentX += columnWidths[i];
+      });
+
+      // Draw header line
+      doc.moveTo(margin, tableTop + 12)
+         .lineTo(margin + columnWidths.reduce((a, b) => a + b, 0), tableTop + 12)
+         .stroke();
+
+      let currentY = tableTop + 16;
+      doc.fontSize(7).font('Times-Roman');
+
+      // Table rows
+      bookings.forEach((booking, index) => {
+        const bookingDate = booking.date ? 
+          new Date(booking.date).toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric'
+          }) : 'N/A';
+        const timeStr = `${booking.startTime || 'N/A'}-${booking.endTime || 'N/A'}`;
+        const sessionName = booking.name || 'N/A';
+        const organizer = booking.user?.name || 'N/A';
+        const email = booking.user?.email || '';
+        const phone = booking.user?.phone || '';
+        const department = booking.user?.department || booking.department || 'N/A';
+        const labType = booking.labType || 'N/A';
+        const experiment = booking.experimentType || 'N/A';
+        const students = booking.numberOfStudents || 'N/A';
+        const status = booking.status || 'N/A';
+
+        // Truncate long text
+        const safeSessionName = sessionName.length > 10 ? sessionName.substring(0, 10) + '...' : sessionName;
+        const safeOrganizer = organizer.length > 9 ? organizer.substring(0, 9) + '...' : organizer;
+        const safeEmail = email.length > 11 ? email.substring(0, 11) + '...' : email;
+        const safePhone = phone.length > 9 ? phone.substring(0, 9) : phone;
+        const safeDept = department.length > 5 ? department.substring(0, 5) + '...' : department;
+        const safeLabType = labType.length > 8 ? labType.substring(0, 8) + '...' : labType;
+        const safeExperiment = experiment.length > 10 ? experiment.substring(0, 10) + '...' : experiment;
+
+        const rowData = [bookingDate, timeStr, safeSessionName, safeOrganizer, safeEmail, safePhone, safeDept, safeLabType, safeExperiment, students, status];
+
+        // Calculate row height
+        const cellHeights = rowData.map((data, i) => {
+          const text = (data || '').toString();
+          return doc.heightOfString(text, { width: columnWidths[i], align: 'left' });
+        });
+        const rowHeight = Math.max(...cellHeights, 10) + 2;
+
+        // Start new page if needed
+        if (currentY + rowHeight > 750) {
+          doc.addPage();
+          currentY = 50;
+
+          // Redraw headers on new page
+          doc.fontSize(8).font('Times-Bold');
+          currentX = margin;
+          tableHeaders.forEach((header, i) => {
+            doc.text(header, currentX, currentY, { width: columnWidths[i], align: 'left' });
+            currentX += columnWidths[i];
+          });
+          doc.moveTo(margin, currentY + 12)
+             .lineTo(margin + columnWidths.reduce((a, b) => a + b, 0), currentY + 12)
+             .stroke();
+          currentY += 16;
+          doc.fontSize(7).font('Times-Roman');
+        }
+
+        // Draw row
+        currentX = margin;
+        rowData.forEach((data, i) => {
+          const text = (data || '').toString();
+          doc.text(text, currentX, currentY, { width: columnWidths[i], align: 'left' });
+          currentX += columnWidths[i];
+        });
+
+        currentY += rowHeight;
+      });
+    }
+
+    // Footer
+    doc.fontSize(10).font('Times-Roman')
+       .text(`Generated on ${new Date().toLocaleString('en-IN')}`, 50, doc.page.height - 100, { align: 'center' });
+
+    // Finalize PDF
+    doc.end();
+
+  } catch (error) {
+    console.error('❌ Error generating laboratory report:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Only send error response if headers haven't been sent yet
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        success: false,
+        message: 'Error generating report', 
+        error: error.message
+      });
+    } else {
+      // If headers were already sent, we can't send JSON
+      // The PDF stream is already started, so we just log the error
+      console.error('Cannot send error response - headers already sent');
+    }
+  }
+};
+
 // Admin-specific functions
 const getAllBookingsForAdmin = async (req, res) => {
   try {
@@ -512,6 +742,7 @@ module.exports = {
   updateBookingStatus,
   deleteBooking,
   getAvailableDates,
+  downloadReport,
   // Admin functions
   getAllBookingsForAdmin,
   getBookingsByDateForAdmin,

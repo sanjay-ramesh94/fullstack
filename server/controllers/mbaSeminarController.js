@@ -2,6 +2,7 @@
 const MBASeminarBooking = require('../models/MBASeminarBooking');
 const User = require('../models/User');
 const emailService = require('../services/emailService');
+const PDFDocument = require('pdfkit');
 
 // Check if time slots conflict
 const checkTimeConflict = (start1, end1, start2, end2) => {
@@ -298,6 +299,157 @@ const addMinutes = (timeString, minutes) => {
   return date.toTimeString().slice(0, 5);
 };
 
+const downloadReport = async (req, res) => {
+  try {
+    const { dateRange = 'all', status = 'all' } = req.query;
+    
+    let matchQuery = { isActive: true };
+    
+    // Apply status filter
+    if (status !== 'all') {
+      matchQuery.status = status;
+    }
+    
+    // Apply date range filter
+    const today = new Date();
+    switch (dateRange) {
+      case 'today':
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const todayEnd = new Date(todayStart);
+        todayEnd.setDate(todayEnd.getDate() + 1);
+        matchQuery.date = { $gte: todayStart, $lt: todayEnd };
+        break;
+      case 'week':
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        matchQuery.date = { $gte: weekStart };
+        break;
+      case 'month':
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        matchQuery.date = { $gte: monthStart };
+        break;
+      case 'year':
+        const yearStart = new Date(today.getFullYear(), 0, 1);
+        matchQuery.date = { $gte: yearStart };
+        break;
+    }
+
+    const bookings = await MBASeminarBooking.find(matchQuery)
+      .populate('user', 'name email department phone')
+      .sort({ date: -1, startTime: 1 })
+      .lean();
+
+    // Calculate summary statistics
+    const totalBookings = bookings.length;
+    const confirmedBookings = bookings.filter(b => b.status === 'confirmed').length;
+    const completedBookings = bookings.filter(b => b.status === 'completed').length;
+    const pendingBookings = bookings.filter(b => b.status === 'pending').length;
+
+    // Set response headers FIRST
+    const filename = `mba-seminar-report-${dateRange}-${new Date().toISOString().split('T')[0]}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-cache');
+
+    // Create PDF document
+    const doc = new PDFDocument({
+      size: 'A4',
+      margin: 50,
+      bufferPages: true
+    });
+
+    // Pipe the PDF to the response
+    doc.pipe(res);
+
+    // Add content to PDF
+    doc.fontSize(20)
+       .text('KONGU ENGINEERING COLLEGE (AUTONOMOUS)', { align: 'center' })
+       .fontSize(18)
+       .text('MBA SEMINAR HALL', { align: 'center' })
+       .text('BOOKING REPORT', { align: 'center' })
+       .moveDown(2);
+
+    // Report info
+    doc.fontSize(12)
+       .text(`Report Generated: ${new Date().toLocaleDateString('en-IN')}`)
+       .text(`Date Range: ${dateRange.toUpperCase()}`)
+       .text(`Status Filter: ${status.toUpperCase()}`)
+       .moveDown(1);
+
+    // Summary
+    doc.fontSize(16)
+       .text('SUMMARY STATISTICS:', { underline: true })
+       .fontSize(12)
+       .text(`Total Sessions: ${totalBookings}`)
+       .text(`Confirmed: ${confirmedBookings}`)
+       .text(`Completed: ${completedBookings}`)
+       .text(`Pending: ${pendingBookings}`)
+       .moveDown(1);
+
+    // Sessions list
+    doc.fontSize(16)
+       .text('SESSION DETAILS:', { underline: true })
+       .fontSize(10)
+       .moveDown(0.5);
+
+    if (bookings.length === 0) {
+      doc.text('No sessions found for the selected criteria.');
+    } else {
+      bookings.forEach((booking, index) => {
+        if (doc.y > 700) {
+          doc.addPage();
+        }
+
+        const bookingDate = booking.date ? 
+          new Date(booking.date).toLocaleDateString('en-IN') : 'N/A';
+        const organizer = booking.user?.name || 'N/A';
+        const email = booking.user?.email || 'N/A';
+        const phone = booking.user?.phone || 'N/A';
+
+        doc.text(`${index + 1}. ${booking.name || 'N/A'}`)
+           .text(`   Date: ${bookingDate}`)
+           .text(`   Time: ${booking.startTime || 'N/A'} - ${booking.endTime || 'N/A'}`)
+           .text(`   Organizer: ${organizer}`)
+           .text(`   Email: ${email}`)
+           .text(`   Phone: ${phone}`)
+           .text(`   Department: ${booking.user?.department || booking.department || 'N/A'}`)
+           .text(`   Session Type: ${booking.sessionType || 'N/A'}`)
+           .text(`   Speaker: ${booking.speakerName || 'N/A'}`)
+           .text(`   Expected Students: ${booking.expectedStudents || 'N/A'}`)
+           .text(`   Semester: ${booking.semester || 'N/A'}`)
+           .text(`   Subject: ${booking.subject || 'N/A'}`)
+           .text(`   Status: ${booking.status || 'N/A'}`)
+           .moveDown(0.5);
+      });
+    }
+
+    // Add footer
+    doc.fontSize(10)
+       .text(`Generated on ${new Date().toLocaleString('en-IN')}`, 50, doc.page.height - 50);
+
+    // End the document
+    doc.end();
+
+  } catch (error) {
+    console.error('❌ Error generating MBA seminar report:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Only send error response if headers haven't been sent yet
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        success: false,
+        message: 'Error generating report', 
+        error: error.message
+      });
+    } else {
+      // If headers were already sent, we can't send JSON
+      // The PDF stream is already started, so we just log the error
+      console.error('Cannot send error response - headers already sent');
+    }
+  }
+};
+
 // Admin-specific functions
 const getAllBookingsForAdmin = async (req, res) => {
   try {
@@ -541,6 +693,7 @@ module.exports = {
   updateBookingStatus,
   deleteBooking,
   getAvailableDates,
+  downloadReport,
   // Admin functions
   getAllBookingsForAdmin,
   getBookingsByDateForAdmin,

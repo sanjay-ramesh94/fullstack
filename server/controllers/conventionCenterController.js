@@ -2,6 +2,7 @@
 const ConventionCenterBooking = require('../models/ConventionCenterBooking');
 const User = require('../models/User');
 const emailService = require('../services/emailService');
+const PDFDocument = require('pdfkit');
 
 // Check if time slots conflict
 const checkTimeConflict = (start1, end1, start2, end2) => {
@@ -510,6 +511,241 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+const downloadReport = async (req, res) => {
+  try {
+    console.log('Download report request received:', {
+      query: req.query,
+      user: req.user ? req.user.userId : 'No user',
+      headers: req.headers.authorization ? 'Auth header present' : 'No auth header'
+    });
+    
+    const { dateRange = 'all', status = 'all' } = req.query;
+    
+    // Build query based on filters
+    let matchQuery = { isActive: true };
+    
+    if (status && status !== 'all') {
+      matchQuery.status = status;
+    }
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    switch (dateRange) {
+      case 'today':
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        matchQuery.date = { $gte: today, $lt: tomorrow };
+        break;
+      case 'week':
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay());
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 7);
+        matchQuery.date = { $gte: weekStart, $lt: weekEnd };
+        break;
+      case 'month':
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        matchQuery.date = { $gte: monthStart, $lt: monthEnd };
+        break;
+      case 'year':
+        const yearStart = new Date(today.getFullYear(), 0, 1);
+        const yearEnd = new Date(today.getFullYear() + 1, 0, 1);
+        matchQuery.date = { $gte: yearStart, $lt: yearEnd };
+        break;
+    }
+    
+    console.log('Fetching bookings with query:', matchQuery);
+    
+    // Fetch bookings with user details
+    const bookings = await ConventionCenterBooking.find(matchQuery)
+      .populate('user', 'name department email phone')
+      .sort({ date: -1, startTime: 1 })
+      .lean();
+    
+    console.log(`Found ${bookings.length} bookings`);
+    
+    // Set response headers BEFORE creating the PDF
+    const filename = `convention-center-report-${dateRange}-${new Date().toISOString().split('T')[0]}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-cache');
+    
+    // Create PDF document
+    const doc = new PDFDocument({ 
+      margin: 50,
+      size: 'A4',
+      bufferPages: true
+    });
+    
+    // Pipe PDF to response
+    doc.pipe(res);
+    
+    // Add header
+    doc.fontSize(20)
+      .font('Helvetica-Bold')
+      .text('Convention Center Booking Report', { align: 'center' });
+    
+    doc.fontSize(10)
+      .font('Helvetica')
+      .text('Generated on: ' + new Date().toLocaleString('en-IN', { 
+        timeZone: 'Asia/Kolkata',
+        dateStyle: 'full',
+        timeStyle: 'short'
+      }), { align: 'center' });
+    
+    doc.moveDown(1.5);
+    
+    // Add summary statistics
+    const totalBookings = bookings.length;
+    const confirmedBookings = bookings.filter(b => b.status === 'confirmed').length;
+    const pendingBookings = bookings.filter(b => b.status === 'pending').length;
+    const cancelledBookings = bookings.filter(b => b.status === 'cancelled').length;
+    const completedBookings = bookings.filter(b => b.status === 'completed').length;
+    
+    doc.fontSize(14)
+      .font('Helvetica-Bold')
+      .text('Summary Statistics:', { underline: true });
+    
+    doc.fontSize(12)
+      .font('Helvetica')
+      .text(`Total Bookings: ${totalBookings}`)
+      .text(`Confirmed: ${confirmedBookings}`)
+      .text(`Pending: ${pendingBookings}`)
+      .text(`Completed: ${completedBookings}`)
+      .text(`Cancelled: ${cancelledBookings}`);
+    
+    doc.moveDown(1.5);
+    
+    // Add bookings table
+    if (bookings.length > 0) {
+      doc.fontSize(14)
+        .font('Helvetica-Bold')
+        .text('Booking Details:', { underline: true });
+      
+      doc.moveDown(0.5);
+      
+      // Table headers
+      const rowHeight = 25;
+      let currentY = doc.y;
+      
+      // Draw table headers with background
+      doc.fontSize(10).font('Helvetica-Bold');
+      
+      const headers = [
+        { text: 'Date', x: 50, width: 75 },
+        { text: 'Time', x: 125, width: 70 },
+        { text: 'Organizer', x: 195, width: 90 },
+        { text: 'Purpose', x: 285, width: 100 },
+        { text: 'Status', x: 385, width: 70 },
+        { text: 'Attendees', x: 455, width: 90 }
+      ];
+      
+      headers.forEach(header => {
+        doc.text(header.text, header.x, currentY, { width: header.width, align: 'left' });
+      });
+      
+      currentY += rowHeight;
+      
+      // Draw line under headers
+      doc.moveTo(50, currentY - 5).lineTo(545, currentY - 5).stroke();
+      
+      doc.font('Helvetica');
+      
+      // Add booking rows
+      bookings.forEach((booking, index) => {
+        // Check if we need a new page
+        if (currentY > 720) {
+          doc.addPage();
+          currentY = 50;
+          
+          // Redraw headers on new page
+          doc.fontSize(10).font('Helvetica-Bold');
+          headers.forEach(header => {
+            doc.text(header.text, header.x, currentY, { width: header.width, align: 'left' });
+          });
+          
+          currentY += rowHeight;
+          doc.moveTo(50, currentY - 5).lineTo(545, currentY - 5).stroke();
+          doc.font('Helvetica');
+        }
+        
+        const bookingDate = new Date(booking.date).toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+        const timeSlot = `${booking.startTime}-${booking.endTime}`;
+        const organizerName = booking.user?.name || booking.name || 'N/A';
+        const purpose = (booking.purpose || 'N/A').substring(0, 30) + (booking.purpose?.length > 30 ? '...' : '');
+        const statusText = booking.status || 'N/A';
+        const attendees = booking.expectedAttendees?.toString() || 'N/A';
+        
+        doc.fontSize(9);
+        
+        const rows = [
+          { text: bookingDate, x: 50, width: 75 },
+          { text: timeSlot, x: 125, width: 70 },
+          { text: organizerName, x: 195, width: 90 },
+          { text: purpose, x: 285, width: 100 },
+          { text: statusText, x: 385, width: 70 },
+          { text: attendees, x: 455, width: 90 }
+        ];
+        
+        rows.forEach(row => {
+          doc.text(row.text, row.x, currentY, { width: row.width, align: 'left' });
+        });
+        
+        currentY += rowHeight;
+        
+        // Add separator line every 5 rows for readability
+        if ((index + 1) % 5 === 0 && index < bookings.length - 1) {
+          doc.moveTo(50, currentY - 3)
+            .lineTo(545, currentY - 3)
+            .strokeOpacity(0.3)
+            .stroke()
+            .strokeOpacity(1);
+        }
+      });
+    } else {
+      doc.fontSize(12)
+        .font('Helvetica')
+        .text('No bookings found for the selected criteria.', { align: 'center' });
+    }
+    
+    // Add footer
+    doc.moveDown(2);
+    doc.fontSize(8)
+      .font('Helvetica-Oblique')
+      .text('This report was automatically generated by the Hall Booking System', { 
+        align: 'center' 
+      });
+    
+    // Finalize PDF
+    doc.end();
+    
+    console.log('✅ PDF generation completed successfully');
+    
+  } catch (error) {
+    console.error('❌ Error generating Convention Center report:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Only send error response if headers haven't been sent yet
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        success: false,
+        message: 'Error generating report', 
+        error: error.message
+      });
+    } else {
+      // If headers were already sent, we can't send JSON
+      // The PDF stream is already started, so we just log the error
+      console.error('Cannot send error response - headers already sent');
+    }
+  }
+};
+
 module.exports = {
   createBooking,
   getBookingsByDate,
@@ -517,6 +753,7 @@ module.exports = {
   updateBookingStatus,
   deleteBooking,
   getAvailableDates,
+  downloadReport,
   // Admin functions
   getAllBookingsForAdmin,
   getBookingsByDateForAdmin,

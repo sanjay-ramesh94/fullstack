@@ -86,9 +86,59 @@ class AdminService {
         responseType: 'blob'
       });
       
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Set filename based on format
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `bookings-export-${timestamp}.${format}`;
+      link.setAttribute('download', filename);
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to export bookings' };
+    }
+  }
+
+  // Export hall-specific bookings
+  async exportHallBookings(hallType, format = 'csv', filters = {}) {
+    try {
+      const params = new URLSearchParams({
+        format,
+        ...filters
+      });
+      
+      const response = await api.get(`/${hallType}/admin/export-bookings?${params}`, {
+        responseType: 'blob'
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Set filename based on format and hall type
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `${hallType}-bookings-${timestamp}.${format}`;
+      link.setAttribute('download', filename);
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to export hall bookings' };
     }
   }
 

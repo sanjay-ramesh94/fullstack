@@ -42,6 +42,87 @@ const AdminHallDashboard = () => {
     window.location.href = '/admin';
   };
 
+  const handleDownloadReport = async (dateRange = 'all', status = 'all') => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        alert('Please log in as admin to download reports');
+        return;
+      }
+      
+      const hallTypeMap = {
+        'Convention Center': 'convention-center',
+        'MBA Seminar Hall': 'mba-seminar',
+        'Laboratory': 'lab',
+        'Video Conferencing Hall': 'video-conference'
+      };
+      
+      const endpoint = hallTypeMap[hallName] || 'convention-center';
+      const params = new URLSearchParams({ dateRange, status });
+      const url = `/api/${endpoint}/admin/download-report?${params}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        // Try to parse error as JSON first
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Server error: ${response.status}`);
+        } else {
+          throw new Error(`Failed to download report: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      // Check if response is actually a PDF
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('pdf')) {
+        const text = await response.text();
+        console.error('Expected PDF but got:', contentType, text.substring(0, 200));
+        throw new Error('Server returned invalid response. Expected PDF file.');
+      }
+
+      // Get the PDF content as blob
+      const blob = await response.blob();
+      
+      if (blob.size === 0) {
+        throw new Error('Downloaded file is empty');
+      }
+      
+      // Create download link
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      
+      // Set filename with current date and hall name
+      const currentDate = new Date().toISOString().split('T')[0];
+      const hallNameForFile = hallName.toLowerCase().replace(/\s+/g, '-');
+      link.download = `${hallNameForFile}-report-${dateRange}-${currentDate}.pdf`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 100);
+      
+      console.log('✅ PDF report downloaded successfully');
+    } catch (error) {
+      console.error('❌ Error downloading report:', error);
+      alert(`Failed to download report: ${error.message}`);
+    }
+  };
+
+
   // Early returns
   if (authLoading) {
     return (
@@ -98,6 +179,16 @@ const AdminHallDashboard = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 Refresh
+              </button>
+              {/* Download Report Button */}
+              <button
+                onClick={() => handleDownloadReport('all', 'all')}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download Report
               </button>
               <button
                 onClick={handleLogout}

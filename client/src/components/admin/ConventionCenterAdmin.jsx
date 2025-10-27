@@ -221,13 +221,97 @@ const ConventionCenterAdmin = () => {
     }
   };
 
+  const handleDownloadReport = async (dateRange = 'all', status = 'all') => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        alert('Please log in as admin to download reports');
+        return;
+      }
+      
+      const params = new URLSearchParams({ dateRange, status });
+      const url = `/api/convention-center/admin/download-report?${params}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        // Try to parse error as JSON first
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Server error: ${response.status}`);
+        } else {
+          throw new Error(`Failed to download report: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      // Check if response is actually a PDF
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('pdf')) {
+        const text = await response.text();
+        console.error('Expected PDF but got:', contentType, text.substring(0, 200));
+        throw new Error('Server returned invalid response. Expected PDF file.');
+      }
+
+      // Get the PDF content as blob
+      const blob = await response.blob();
+      
+      if (blob.size === 0) {
+        throw new Error('Downloaded file is empty');
+      }
+      
+      // Create download link
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      
+      // Set filename with current date
+      const currentDate = new Date().toISOString().split('T')[0];
+      link.download = `convention-center-report-${dateRange}-${currentDate}.pdf`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 100);
+      
+      console.log('✅ PDF report downloaded successfully');
+    } catch (error) {
+      console.error('❌ Error downloading report:', error);
+      alert(`Failed to download report: ${error.message}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Convention Center Admin</h1>
-          <p className="text-gray-600">Manage convention center bookings and view analytics</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Convention Center Admin</h1>
+              <p className="text-gray-600">Manage convention center bookings and view analytics</p>
+            </div>
+            <button
+              onClick={() => handleDownloadReport('all', 'all')}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download Report
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -279,7 +363,7 @@ const ConventionCenterAdmin = () => {
               <div className="flex items-center">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0h2a2 2 0 002 2v3a2 2 0 01-2 2H9a2 2 0 01-2-2v-3a2 2 0 002-2zm0 0h2a2 2 0 002 2v3a2 2 0 01-2 2H9a2 2 0 01-2-2v-3a2 2 0 002-2z" />
                   </svg>
                 </div>
                 <div className="ml-4">
