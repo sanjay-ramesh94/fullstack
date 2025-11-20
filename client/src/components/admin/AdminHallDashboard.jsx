@@ -58,7 +58,7 @@ const AdminHallDashboard = () => {
         'Video Conferencing Hall': 'video-conference'
       };
       
-      const endpoint = hallTypeMap[hallName] || 'convention-center';
+      const endpoint = hallId || hallTypeMap[hallName] || 'convention-center';
       const params = new URLSearchParams({ dateRange, status });
       const url = `/api/${endpoint}/admin/download-report?${params}`;
       
@@ -526,14 +526,14 @@ const EventCard = React.memo(({ event, type, selectedDate }) => {
   };
 
   const cardStyles = isUpcoming
-    ? 'border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100'
-    : 'border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50 hover:from-gray-100 hover:to-slate-100';
+    ? 'border-red-200 bg-gradient-to-r from-red-50 to-rose-50 hover:from-red-100 hover:to-rose-100'
+    : 'border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100';
   
   const timeStyles = isUpcoming
-    ? 'bg-green-100 text-green-800 border border-green-200'
-    : 'bg-gray-100 text-gray-700 border border-gray-200';
+    ? 'bg-red-100 text-red-800 border border-red-200'
+    : 'bg-green-100 text-green-800 border border-green-200';
 
-  const statusStyles = isUpcoming ? 'bg-green-500' : 'bg-gray-400';
+  const statusStyles = isUpcoming ? 'bg-red-500' : 'bg-green-500';
 
   return (
     <div className={`border ${cardStyles} rounded-lg p-4 transition-all duration-200 hover:shadow-md hover:scale-[1.02] relative overflow-hidden`}>

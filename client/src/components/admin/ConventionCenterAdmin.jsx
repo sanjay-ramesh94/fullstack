@@ -195,6 +195,26 @@ const ConventionCenterAdmin = () => {
     }
   };
 
+  const deleteBooking = async (bookingId) => {
+    try {
+      await api.delete(`/convention-center/${bookingId}`);
+      fetchBookings();
+      fetchDateEvents();
+      fetchStats();
+    } catch (error) {
+      const status = error.response?.status;
+      if (status === 404) {
+        // Booking already deleted or not found - refresh lists but don't treat as fatal error
+        console.warn('Booking already deleted or not found, refreshing view.');
+        fetchBookings();
+        fetchDateEvents();
+        fetchStats();
+      } else {
+        console.error('Error deleting booking:', error.response?.data || error.message);
+      }
+    }
+  };
+
   const formatTime = (time) => {
     const [hours, minutes] = time.split(':');
     const hour12 = hours % 12 || 12;
@@ -511,7 +531,14 @@ const ConventionCenterAdmin = () => {
                     {dateEvents.upcomingEvents?.length > 0 ? (
                       <div className="space-y-3">
                         {dateEvents.upcomingEvents.map((event) => (
-                          <div key={event._id} className="border border-green-200 rounded-lg p-4 bg-green-50">
+                          <div
+                            key={event._id}
+                            className={`border rounded-lg p-4 ${
+                              (event.status === 'confirmed' || event.status === 'completed')
+                                ? 'border-red-200 bg-red-50'
+                                : 'border-gray-200 bg-white'
+                            }`}
+                          >
                             <div className="flex justify-between items-start">
                               <div>
                                 <h4 className="font-medium text-gray-900">{event.name}</h4>
@@ -543,7 +570,14 @@ const ConventionCenterAdmin = () => {
                     {dateEvents.completedEvents?.length > 0 ? (
                       <div className="space-y-3">
                         {dateEvents.completedEvents.map((event) => (
-                          <div key={event._id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <div
+                            key={event._id}
+                            className={`border rounded-lg p-4 ${
+                              (event.status === 'confirmed' || event.status === 'completed')
+                                ? 'border-green-200 bg-green-50'
+                                : 'border-gray-200 bg-white'
+                            }`}
+                          >
                             <div className="flex justify-between items-start">
                               <div>
                                 <h4 className="font-medium text-gray-900">{event.name}</h4>
@@ -651,7 +685,7 @@ const ConventionCenterAdmin = () => {
                             Approve
                           </button>
                           <button
-                            onClick={() => updateBookingStatus(booking._id, 'cancelled')}
+                            onClick={() => deleteBooking(booking._id)}
                             className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors"
                           >
                             Reject
@@ -662,13 +696,7 @@ const ConventionCenterAdmin = () => {
                       {booking.status === 'confirmed' && (
                         <div className="flex gap-3">
                           <button
-                            onClick={() => updateBookingStatus(booking._id, 'completed')}
-                            className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors"
-                          >
-                            Mark Complete
-                          </button>
-                          <button
-                            onClick={() => updateBookingStatus(booking._id, 'cancelled')}
+                            onClick={() => deleteBooking(booking._id)}
                             className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors"
                           >
                             Cancel

@@ -1,8 +1,11 @@
 // src/components/admin/VideoConferenceAdmin.jsx
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 
 const VideoConferenceAdmin = () => {
+  const { admin, loading: authLoading } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [stats, setStats] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -109,20 +112,24 @@ const VideoConferenceAdmin = () => {
   };
 
   useEffect(() => {
-    fetchBookings();
-    fetchStats();
-    fetchBookedDates();
-  }, [filters]);
+    if (admin) {
+      fetchBookings();
+      fetchStats();
+      fetchBookedDates();
+    }
+  }, [filters, admin]);
 
   useEffect(() => {
-    fetchBookedDates();
-  }, [currentMonth]);
+    if (admin) {
+      fetchBookedDates();
+    }
+  }, [currentMonth, admin]);
 
   useEffect(() => {
-    if (selectedDate) {
+    if (admin && selectedDate) {
       fetchDateEvents();
     }
-  }, [selectedDate]);
+  }, [selectedDate, admin]);
 
   const fetchBookings = async () => {
     setLoading(true);
@@ -137,7 +144,7 @@ const VideoConferenceAdmin = () => {
       const response = await api.get(`/video-conference/admin/bookings?${params}`);
       setBookings(response.data.bookings || []);
     } catch (error) {
-      console.error('Error fetching video conference bookings:', error);
+      console.error('Error fetching video conference bookings:', error.response?.data || error.message);
     }
     setLoading(false);
   };
@@ -147,7 +154,7 @@ const VideoConferenceAdmin = () => {
       const response = await api.get('/video-conference/admin/dashboard-stats');
       setStats(response.data);
     } catch (error) {
-      console.error('Error fetching video conference stats:', error);
+      console.error('Error fetching video conference stats:', error.response?.data || error.message);
     }
   };
 
@@ -169,7 +176,7 @@ const VideoConferenceAdmin = () => {
       
       setBookedDates(bookedDatesSet);
     } catch (error) {
-      console.error('Error fetching booked dates:', error);
+      console.error('Error fetching booked dates:', error.response?.data || error.message);
     }
     setLoadingBookedDates(false);
   };
@@ -182,7 +189,7 @@ const VideoConferenceAdmin = () => {
       const response = await api.get(`/video-conference/admin/events/${dateString}`);
       setDateEvents(response.data);
     } catch (error) {
-      console.error('Error fetching date events:', error);
+      console.error('Error fetching date events:', error.response?.data || error.message);
     }
   };
 
@@ -194,6 +201,26 @@ const VideoConferenceAdmin = () => {
       fetchStats();
     } catch (error) {
       console.error('Error updating booking status:', error);
+    }
+  };
+
+  const deleteBooking = async (bookingId) => {
+    try {
+      await api.delete(`/video-conference/${bookingId}`);
+      fetchBookings();
+      fetchDateEvents();
+      fetchStats();
+    } catch (error) {
+      const status = error.response?.status;
+      if (status === 404) {
+        // Booking already deleted or not found - refresh lists but don't treat as fatal error
+        console.warn('Booking already deleted or not found, refreshing view.');
+        fetchBookings();
+        fetchDateEvents();
+        fetchStats();
+      } else {
+        console.error('Error deleting booking:', error.response?.data || error.message);
+      }
     }
   };
 
@@ -223,13 +250,105 @@ const VideoConferenceAdmin = () => {
     }
   };
 
+  const handleDownloadReport = async (dateRange = 'all', status = 'all') => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        alert('Please log in as admin to download reports');
+        return;
+      }
+      
+      const params = new URLSearchParams({ dateRange, status });
+      const url = `/api/video-conference/admin/download-report?${params}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Server error: ${response.status}`);
+        } else {
+          throw new Error(`Failed to download report: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('pdf')) {
+        const text = await response.text();
+        console.error('Expected PDF but got:', contentType, text.substring(0, 200));
+        throw new Error('Server returned invalid response. Expected PDF file.');
+      }
+
+      const blob = await response.blob();
+      
+      if (blob.size === 0) {
+        throw new Error('Downloaded file is empty');
+      }
+      
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      
+      const currentDate = new Date().toISOString().split('T')[0];
+      link.download = `video-conference-report-${dateRange}-${currentDate}.pdf`;
+      
+      document.body.appendChild(link);
+      link.click();
+      
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 100);
+      
+      console.log('✅ PDF report downloaded successfully');
+    } catch (error) {
+      console.error('❌ Error downloading report:', error);
+      alert(`Failed to download report: ${error.message}`);
+    }
+  };
+
+  // Auth checks
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!admin) {
+    return <Navigate to="/admin/login" />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Video Conference Hall Admin</h1>
-          <p className="text-gray-600">Manage video conference hall bookings and view analytics</p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Video Conference Hall Admin</h1>
+            <p className="text-gray-600">Manage video conference hall bookings and view analytics</p>
+          </div>
+
+          <button
+            onClick={() => handleDownloadReport('all', 'all')}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Download Report
+          </button>
         </div>
 
         {/* Stats Cards */}
@@ -429,7 +548,14 @@ const VideoConferenceAdmin = () => {
                     {dateEvents.upcomingEvents?.length > 0 ? (
                       <div className="space-y-3">
                         {dateEvents.upcomingEvents.map((event) => (
-                          <div key={event._id} className="border border-green-200 rounded-lg p-4 bg-green-50">
+                          <div
+                            key={event._id}
+                            className={`border rounded-lg p-4 ${
+                              (event.status === 'confirmed' || event.status === 'completed')
+                                ? 'border-red-200 bg-red-50'
+                                : 'border-gray-200 bg-white'
+                            }`}
+                          >
                             <div className="flex justify-between items-start">
                               <div>
                                 <h4 className="font-medium text-gray-900">{event.name}</h4>
@@ -461,7 +587,14 @@ const VideoConferenceAdmin = () => {
                     {dateEvents.completedEvents?.length > 0 ? (
                       <div className="space-y-3">
                         {dateEvents.completedEvents.map((event) => (
-                          <div key={event._id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <div
+                            key={event._id}
+                            className={`border rounded-lg p-4 ${
+                              (event.status === 'confirmed' || event.status === 'completed')
+                                ? 'border-green-200 bg-green-50'
+                                : 'border-gray-200 bg-white'
+                            }`}
+                          >
                             <div className="flex justify-between items-start">
                               <div>
                                 <h4 className="font-medium text-gray-900">{event.name}</h4>
@@ -563,7 +696,7 @@ const VideoConferenceAdmin = () => {
                             Approve
                           </button>
                           <button
-                            onClick={() => updateBookingStatus(booking._id, 'cancelled')}
+                            onClick={() => deleteBooking(booking._id)}
                             className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors"
                           >
                             Reject
@@ -574,13 +707,7 @@ const VideoConferenceAdmin = () => {
                       {booking.status === 'confirmed' && (
                         <div className="flex gap-3">
                           <button
-                            onClick={() => updateBookingStatus(booking._id, 'completed')}
-                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-                          >
-                            Mark Complete
-                          </button>
-                          <button
-                            onClick={() => updateBookingStatus(booking._id, 'cancelled')}
+                            onClick={() => deleteBooking(booking._id)}
                             className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors"
                           >
                             Cancel

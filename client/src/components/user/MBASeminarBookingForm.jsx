@@ -11,6 +11,8 @@ const MBASeminarBookingForm = ({ selectedDate, existingBookings, onBookingSucces
     endTime: '',
     sessionType: 'guest-lecture',
     expectedStudents: '',
+    semester: '',
+    subject: '',
     specialArrangements: ''
   });
   const [availableStartTimes, setAvailableStartTimes] = useState([]);
@@ -150,7 +152,8 @@ const MBASeminarBookingForm = ({ selectedDate, existingBookings, onBookingSucces
     e.preventDefault();
     
     if (!formData.name || !formData.department || !formData.purpose || 
-        !formData.startTime || !formData.endTime || !formData.expectedStudents) {
+        !formData.startTime || !formData.endTime || !formData.expectedStudents ||
+        !formData.semester || !formData.subject) {
       setError('Please fill in all required fields');
       return;
     }
@@ -327,6 +330,41 @@ const MBASeminarBookingForm = ({ selectedDate, existingBookings, onBookingSucces
             </div>
           </div>
 
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="semester" className="block text-sm font-medium text-gray-700 mb-2">
+                Semester *
+              </label>
+              <select
+                id="semester"
+                name="semester"
+                value={formData.semester}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select semester</option>
+                <option value="1st">1st</option>
+                <option value="2nd">2nd</option>
+                <option value="3rd">3rd</option>
+                <option value="4th">4th</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
+                Subject *
+              </label>
+              <input
+                type="text"
+                id="subject"
+                name="subject"
+                value={formData.subject}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Subject name"
+              />
+            </div>
+          </div>
 
           <div>
             <label htmlFor="specialArrangements" className="block text-sm font-medium text-gray-700 mb-2">

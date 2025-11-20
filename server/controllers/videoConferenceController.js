@@ -72,6 +72,31 @@ const createBooking = async (req, res) => {
 
     // Note: Emails will be sent only after admin approval
 
+    // Send booking request received email to user and notification to admin
+    try {
+      const bookingDetails = {
+        bookingId: savedBooking._id.toString(),
+        userName: name,
+        userEmail: user.email,
+        userPhone: user.phone || 'Not provided',
+        hallName: 'Video Conference Hall',
+        purpose,
+        bookingDate: new Date(date).toLocaleDateString(),
+        startTime,
+        endTime,
+        department,
+        meetingType: meetingType || 'internal',
+        expectedParticipants,
+        requiresRecording: requiresRecording || false,
+        technicalRequirements
+      };
+
+      await emailService.sendBookingRequestReceived(bookingDetails);
+      await emailService.sendBookingNotification(bookingDetails);
+    } catch (emailError) {
+      console.error('Video Conference booking request emails failed:', emailError);
+    }
+
     res.status(201).json({
       message: 'Video Conference Hall booking created successfully',
       booking: savedBooking
@@ -152,7 +177,6 @@ const updateBookingStatus = async (req, res) => {
 
         // Send confirmation and notification emails
         await emailService.sendBookingConfirmation(bookingDetails);
-        await emailService.sendBookingNotification(bookingDetails);
       } catch (emailError) {
         console.error('Email sending failed:', emailError);
       }
@@ -176,9 +200,28 @@ const deleteBooking = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    booking.isActive = false;
-    booking.status = 'cancelled';
-    await booking.save();
+    const cancellationDetails = {
+      bookingId: booking._id,
+      userName: booking.name || (booking.user && booking.user.name),
+      userEmail: booking.user && booking.user.email,
+      hallName: 'Video Conference Hall',
+      purpose: booking.purpose,
+      bookingDate: booking.date.toLocaleDateString(),
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      department: booking.department || (booking.user && booking.user.department)
+    };
+
+    // Hard delete the booking document
+    await booking.deleteOne();
+
+    // Send cancellation emails (user + admin), best-effort
+    try {
+      await emailService.sendCancellationNotification(cancellationDetails);
+      await emailService.sendAdminCancellationNotification(cancellationDetails);
+    } catch (emailError) {
+      console.error('Error sending cancellation emails for video conference booking:', emailError);
+    }
 
     res.json({ message: 'Video Conference booking cancelled successfully' });
   } catch (error) {

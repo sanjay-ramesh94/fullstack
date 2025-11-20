@@ -179,7 +179,7 @@ class EmailService {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.ADMIN_EMAIL,
-      subject: `New Hall Booking - ${hallName}`,
+      subject: `New Booking Request - ${hallName}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
@@ -187,7 +187,7 @@ class EmailService {
           </h2>
           
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #007bff; margin-top: 0;">Booking Details</h3>
+            <h3 style="color: #333; margin-top: 0;">Booking Details</h3>
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
                 <td style="padding: 8px; font-weight: bold; color: #555;">Booking ID:</td>
@@ -216,27 +216,9 @@ class EmailService {
             </table>
           </div>
 
-          <div style="background-color: #e9ecef; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #007bff; margin-top: 0;">User Information</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px; font-weight: bold; color: #555;">Name:</td>
-                <td style="padding: 8px;">${userName}</td>
-              </tr>
-              <tr style="background-color: #fff;">
-                <td style="padding: 8px; font-weight: bold; color: #555;">Email:</td>
-                <td style="padding: 8px;">${userEmail}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px; font-weight: bold; color: #555;">Phone:</td>
-                <td style="padding: 8px;">${userPhone}</td>
-              </tr>
-            </table>
-          </div>
-
-          <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; border-left: 4px solid #28a745;">
-            <p style="margin: 0; color: #155724;">
-              <strong>Status:</strong> Booking has been automatically confirmed.
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #ffc107;">
+            <p style="margin: 0; color: #856404;">
+              <strong>Status:</strong> New booking request received. Please review and approve or cancel this request in the admin panel.
             </p>
           </div>
 
@@ -279,15 +261,15 @@ class EmailService {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: userEmail,
-      subject: `Booking Confirmed - ${hallName}`,
+      subject: `Booking Approved - ${hallName}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #28a745; border-bottom: 2px solid #28a745; padding-bottom: 10px;">
-            Booking Confirmed
+            Booking Approved
           </h2>
           
           <p>Dear ${userName},</p>
-          <p>Your hall booking has been <strong style="color: #28a745;">confirmed</strong>. Here are the details:</p>
+          <p>Your hall booking request has been <strong style="color: #28a745;">approved</strong> and is now confirmed. Here are the details:</p>
           
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
             <table style="width: 100%; border-collapse: collapse;">
@@ -334,6 +316,86 @@ class EmailService {
     };
 
     return await this.sendEmailWithFallback(mailOptions, 'Confirmation email');
+  }
+
+  async sendBookingRequestReceived(bookingDetails) {
+    console.log("✉️ === BOOKING REQUEST RECEIVED START ===");
+    console.log("✉️ Booking details received:", bookingDetails);
+
+    const {
+      userName,
+      userEmail,
+      hallName = 'Conference Hall',
+      purpose,
+      bookingDate,
+      startTime,
+      endTime,
+      department,
+      bookingId
+    } = bookingDetails;
+
+    if (!userEmail) {
+      console.error('❌ User email is required for booking request received email');
+      throw new Error('User email is required');
+    }
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: userEmail,
+      subject: `Booking Request Received - ${hallName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            Booking Request Received
+          </h2>
+
+          <p>Dear ${userName},</p>
+          <p>We have received your hall booking request. It is currently <strong>pending admin approval</strong>. You will receive another email once your request has been approved or updated.</p>
+
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #333; margin-top: 0;">Booking Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #555;">Booking ID:</td>
+                <td style="padding: 8px;">${bookingId}</td>
+              </tr>
+              <tr style="background-color: #fff;">
+                <td style="padding: 8px; font-weight: bold; color: #555;">Hall:</td>
+                <td style="padding: 8px;">${hallName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #555;">Purpose:</td>
+                <td style="padding: 8px;">${purpose}</td>
+              </tr>
+              <tr style="background-color: #fff;">
+                <td style="padding: 8px; font-weight: bold; color: #555;">Date:</td>
+                <td style="padding: 8px;">${bookingDate}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #555;">Time:</td>
+                <td style="padding: 8px;">${startTime} - ${endTime}</td>
+              </tr>
+              <tr style="background-color: #fff;">
+                <td style="padding: 8px; font-weight: bold; color: #555;">Department:</td>
+                <td style="padding: 8px;">${department}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px; border-left: 4px solid #007bff;">
+            <p style="margin: 0; color: #495057;">
+              <strong>Next steps:</strong> The admin team will review your request. You will receive an approval email with final confirmation or an update if any changes are needed.
+            </p>
+          </div>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px; text-align: center;">
+            This is an automated acknowledgement from the Hall Booking System.
+          </p>
+        </div>
+      `
+    };
+
+    return await this.sendEmailWithFallback(mailOptions, 'Booking request received email');
   }
 
   async sendStatusUpdateEmail(statusDetails) {

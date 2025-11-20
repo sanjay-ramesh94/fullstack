@@ -9,6 +9,8 @@ const LabBookingForm = ({ selectedDate, existingBookings, onBookingSuccess }) =>
     purpose: '',
     startTime: '',
     endTime: '',
+    labType: '',
+    experimentType: '',
     numberOfStudents: '',
     supervisorName: '',
     supervisorContact: '',
@@ -153,6 +155,7 @@ const LabBookingForm = ({ selectedDate, existingBookings, onBookingSuccess }) =>
     
     if (!formData.name || !formData.department || !formData.purpose || 
         !formData.startTime || !formData.endTime ||
+        !formData.labType || !formData.experimentType ||
         !formData.numberOfStudents || !formData.supervisorName || !formData.supervisorContact) {
       setError('Please fill in all required fields');
       return;
@@ -291,6 +294,44 @@ const LabBookingForm = ({ selectedDate, existingBookings, onBookingSuccess }) =>
           </div>
 
           {/* Lab Specific Fields */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="labType" className="block text-sm font-medium text-gray-700 mb-2">
+                Lab Type *
+              </label>
+              <select
+                id="labType"
+                name="labType"
+                value={formData.labType}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select lab type</option>
+                <option value="computer">Computer Lab</option>
+                <option value="physics">Physics Lab</option>
+                <option value="chemistry">Chemistry Lab</option>
+                <option value="biology">Biology Lab</option>
+                <option value="engineering">Engineering Lab</option>
+                <option value="research">Research Lab</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="experimentType" className="block text-sm font-medium text-gray-700 mb-2">
+                Experiment Type *
+              </label>
+              <input
+                type="text"
+                id="experimentType"
+                name="experimentType"
+                value={formData.experimentType}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Type of experiment or activity"
+              />
+            </div>
+          </div>
+
           <div>
             <label htmlFor="numberOfStudents" className="block text-sm font-medium text-gray-700 mb-2">
               Number of Students *

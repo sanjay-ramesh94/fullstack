@@ -27,7 +27,7 @@ const CollegeNavbar = () => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @media (max-width: 768px) {
           h1 {
             font-size: 1.125rem !important;

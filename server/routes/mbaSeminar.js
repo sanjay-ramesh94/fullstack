@@ -29,16 +29,44 @@ router.get('/my-bookings', auth, getBookingsByUser);
 router.get('/date/:date', getBookingsByDate);
 
 // Update MBA seminar booking status (admin)
-router.put('/:bookingId/status', updateBookingStatus);
+router.put('/:bookingId/status', auth, (req, res, next) => {
+  if (!req.user || req.user.type !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+}, updateBookingStatus);
 
 // Delete MBA seminar booking
 router.delete('/:bookingId', auth, deleteBooking);
 
 // Admin routes
-router.get('/admin/bookings', auth, getAllBookingsForAdmin);
-router.get('/admin/events/:date', auth, getBookingsByDateForAdmin);
-router.get('/admin/dashboard-stats', auth, getDashboardStats);
-router.get('/admin/download-report', auth, downloadReport);
+router.get('/admin/bookings', auth, (req, res, next) => {
+  if (!req.user || req.user.type !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+}, getAllBookingsForAdmin);
+
+router.get('/admin/events/:date', auth, (req, res, next) => {
+  if (!req.user || req.user.type !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+}, getBookingsByDateForAdmin);
+
+router.get('/admin/dashboard-stats', auth, (req, res, next) => {
+  if (!req.user || req.user.type !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+}, getDashboardStats);
+
+router.get('/admin/download-report', auth, (req, res, next) => {
+  if (!req.user || req.user.type !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+}, downloadReport);
 
 // Export MBA Seminar bookings
 router.get('/admin/export-bookings', auth, async (req, res) => {

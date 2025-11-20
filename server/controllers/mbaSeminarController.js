@@ -108,6 +108,13 @@ const createBooking = async (req, res) => {
       specialArrangements
     };
 
+    // Send booking request received email to user and notification to admin
+    try {
+      await emailService.sendBookingRequestReceived(bookingDetails);
+      await emailService.sendBookingNotification(bookingDetails);
+    } catch (emailError) {
+      console.error('MBA Seminar booking request emails failed:', emailError);
+    }
 
     res.status(201).json({
       message: 'MBA Seminar Hall booking created successfully',
@@ -181,16 +188,21 @@ const updateBookingStatus = async (req, res) => {
           startTime: booking.startTime,
           endTime: booking.endTime,
           department: booking.department,
-          seminarType: booking.seminarType,
-          expectedParticipants: booking.expectedParticipants,
-          presentationNeeds: booking.presentationNeeds,
-          refreshmentsRequired: booking.refreshmentsRequired,
+          sessionType: booking.sessionType,
+          speakerName: booking.speakerName,
+          speakerDesignation: booking.speakerDesignation,
+          speakerCompany: booking.speakerCompany,
+          expectedStudents: booking.expectedStudents,
+          semester: booking.semester,
+          subject: booking.subject,
+          presentationRequired: booking.presentationRequired,
+          recordingRequired: booking.recordingRequired,
+          refreshmentsNeeded: booking.refreshmentsNeeded,
           specialArrangements: booking.specialArrangements
         };
 
         // Send confirmation and notification emails
         await emailService.sendBookingConfirmation(bookingDetails);
-        await emailService.sendBookingNotification(bookingDetails);
       } catch (emailError) {
         console.error('Email sending failed:', emailError);
       }
@@ -214,9 +226,28 @@ const deleteBooking = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    booking.isActive = false;
-    booking.status = 'cancelled';
-    await booking.save();
+    const cancellationDetails = {
+      bookingId: booking._id,
+      userName: booking.name || (booking.user && booking.user.name),
+      userEmail: booking.user && booking.user.email,
+      hallName: 'MBA Seminar Hall',
+      purpose: booking.purpose,
+      bookingDate: booking.date.toLocaleDateString(),
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      department: booking.department || (booking.user && booking.user.department)
+    };
+
+    // Hard delete the booking document
+    await booking.deleteOne();
+
+    // Send cancellation emails (user + admin), best-effort
+    try {
+      await emailService.sendCancellationNotification(cancellationDetails);
+      await emailService.sendAdminCancellationNotification(cancellationDetails);
+    } catch (emailError) {
+      console.error('Error sending cancellation emails for MBA seminar booking:', emailError);
+    }
 
     res.json({ message: 'MBA Seminar booking cancelled successfully' });
   } catch (error) {

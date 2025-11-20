@@ -24,10 +24,10 @@ const BookingSuccess = ({ bookingDetails, onNewBooking }) => {
             </svg>
           </div>
           <h2 className="text-3xl font-bold text-gray-800 mb-2">
-            Booking Confirmed!
+            Booking Request Sent!
           </h2>
           <p className="text-gray-600">
-            Your video conference hall booking has been successfully confirmed.
+            Your video conference hall booking request has been sent to the admin for approval.
           </p>
         </div>
 
@@ -97,7 +97,7 @@ const BookingSuccess = ({ bookingDetails, onNewBooking }) => {
             <div>
               <h4 className="text-blue-800 font-medium mb-1">What's Next?</h4>
               <ul className="text-blue-700 text-sm space-y-1">
-                <li>• You will receive a confirmation email shortly</li>
+                <li>• You will receive an email once the admin approves your booking request</li>
                 <li>• Please arrive 15 minutes before your scheduled time</li>
                 <li>• Bring your student ID for verification</li>
                 <li>• Contact admin if you need to make changes</li>

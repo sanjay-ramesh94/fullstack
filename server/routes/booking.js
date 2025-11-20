@@ -79,7 +79,8 @@ router.post('/', auth, async (req, res) => {
       date: new Date(date),
       startTime,
       endTime,
-      status: 'confirmed',
+      // New bookings start as pending and require admin approval
+      status: 'pending',
       isActive: true
     });
 
@@ -105,25 +106,25 @@ router.post('/', auth, async (req, res) => {
     // Send emails BEFORE sending response
     console.log('📧 Starting email sending process...');
     let emailResults = {
-      confirmationSent: false,
+      requestReceivedSent: false,
       notificationSent: false,
       errors: []
     };
 
-    // Send confirmation email to user
+    // Send "booking request received" email to user
     try {
-      console.log('✉️ Sending confirmation email to user...');
-      const confirmationResult = await emailService.sendBookingConfirmation(bookingDetails);
-      emailResults.confirmationSent = true;
-      console.log('✅ Confirmation email sent:', confirmationResult);
-    } catch (confirmationError) {
-      console.error('❌ Confirmation email failed:', confirmationError.message);
-      emailResults.errors.push(`Confirmation: ${confirmationError.message}`);
+      console.log('✉️ Sending booking request received email to user...');
+      const requestResult = await emailService.sendBookingRequestReceived(bookingDetails);
+      emailResults.requestReceivedSent = true;
+      console.log('✅ Booking request received email sent:', requestResult);
+    } catch (requestError) {
+      console.error('❌ Booking request received email failed:', requestError.message);
+      emailResults.errors.push(`Request received: ${requestError.message}`);
     }
 
-    // Send notification email to admin
+    // Send notification email to admin about new booking request
     try {
-      console.log('📬 Sending notification email to admin...');
+      console.log('📬 Sending new booking request notification email to admin...');
       const notificationResult = await emailService.sendBookingNotification(bookingDetails);
       emailResults.notificationSent = true;
       console.log('✅ Admin notification sent:', notificationResult);
@@ -137,7 +138,7 @@ router.post('/', auth, async (req, res) => {
     // Return success response (even if emails failed)
     console.log('🎯 === BOOKING ROUTE SUCCESS ===');
     return res.status(201).json({
-      message: 'Booking created successfully',
+      message: 'Booking request sent to admin successfully',
       booking: savedBooking,
       emailStatus: emailResults
     });
@@ -181,8 +182,12 @@ router.get('/test-email', async (req, res) => {
 });
 
 // Get all bookings (admin)
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
+    if (!req.user || req.user.type !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
     const bookings = await Booking.find({ isActive: true })
       .populate('user', 'name email department')
       .sort({ date: -1, startTime: 1 });
@@ -207,8 +212,12 @@ router.get('/my-bookings', auth, async (req, res) => {
 });
 
 // Update booking status (admin) - sends status update email
-router.put('/:bookingId/status', async (req, res) => {
+router.put('/:bookingId/status', auth, async (req, res) => {
   try {
+    if (!req.user || req.user.type !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
     const { bookingId } = req.params;
     const { status, adminNote } = req.body;
 
@@ -264,24 +273,24 @@ router.delete('/:bookingId', auth, async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    booking.isActive = false;
-    booking.status = 'cancelled';
-    await booking.save();
+    // Prepare cancellation details before deleting the document
+    const cancellationDetails = {
+      bookingId: booking._id,
+      userName: booking.name,
+      userEmail: booking.user.email,
+      hallName: 'Conference Hall',
+      purpose: booking.purpose,
+      bookingDate: booking.date.toLocaleDateString(),
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      department: booking.department
+    };
+
+    // Hard delete the booking from the database
+    await booking.deleteOne();
 
     // Send cancellation emails
     try {
-      const cancellationDetails = {
-        bookingId: booking._id,
-        userName: booking.name,
-        userEmail: booking.user.email,
-        hallName: 'Conference Hall',
-        purpose: booking.purpose,
-        bookingDate: booking.date.toLocaleDateString(),
-        startTime: booking.startTime,
-        endTime: booking.endTime,
-        department: booking.department
-      };
-
       await emailService.sendCancellationNotification(cancellationDetails);
       await emailService.sendAdminCancellationNotification(cancellationDetails);
       console.log('✅ Cancellation emails sent');

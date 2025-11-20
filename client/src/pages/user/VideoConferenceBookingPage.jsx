@@ -85,9 +85,9 @@ const VideoConferenceBookingPage = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">Booking Completed!</h2>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Booking Request Sent!</h2>
               <p className="text-gray-600 mb-6">
-                Your Video Conference Hall booking has been confirmed successfully. You will receive a confirmation email shortly.
+                Your Video Conference Hall booking request has been sent to the admin for approval. You will receive an email once your booking is approved.
               </p>
               <div className="space-y-3">
                 <button

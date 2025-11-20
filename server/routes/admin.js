@@ -3,6 +3,7 @@
 const express = require('express');
 const Booking = require('../models/Booking');
 const auth = require('../middleware/auth');
+const emailService = require('../services/emailService');
 
 const router = express.Router();
 
@@ -320,6 +321,28 @@ router.patch('/booking/:id/status', auth, async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
+    // Send status update email to user
+    try {
+      const statusDetails = {
+        bookingId: booking._id,
+        userName: booking.name || (booking.user && booking.user.name),
+        userEmail: booking.user.email,
+        hallName: booking.hallName || 'Conference Hall',
+        purpose: booking.purpose,
+        bookingDate: booking.date.toLocaleDateString(),
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        department: booking.department || (booking.user && booking.user.department),
+        status,
+        adminNote: undefined
+      };
+
+      await emailService.sendStatusUpdateEmail(statusDetails);
+      console.log('✅ Status update email sent from admin route');
+    } catch (emailError) {
+      console.error('❌ Status update email failed in admin route:', emailError);
+    }
+
     res.json({
       message: 'Booking status updated successfully',
       booking
@@ -424,7 +447,7 @@ router.get('/dashboard-stats', auth, async (req, res) => {
   }
 });
 
-// Delete/Cancel booking
+// Delete/Cancel booking (admin) - HARD DELETE with cancellation emails
 router.delete('/booking/:id', auth, async (req, res) => {
   try {
     if (req.user.type !== 'admin') {
@@ -434,25 +457,40 @@ router.delete('/booking/:id', auth, async (req, res) => {
     const { id } = req.params;
     const { reason } = req.body;
 
-    const booking = await Booking.findByIdAndUpdate(
-      id,
-      { 
-        status: 'cancelled',
-        isActive: false,
-        cancellationReason: reason || 'Cancelled by admin',
-        cancelledAt: new Date(),
-        updatedAt: new Date()
-      },
-      { new: true }
-    ).populate('user', 'name department email');
+    // Find booking first so we can use its details for emails
+    const booking = await Booking.findById(id).populate('user', 'name department email');
 
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
+    const cancellationDetails = {
+      bookingId: booking._id,
+      userName: booking.name || (booking.user && booking.user.name),
+      userEmail: booking.user && booking.user.email,
+      hallName: booking.hallName || 'Conference Hall',
+      purpose: booking.purpose,
+      bookingDate: booking.date.toLocaleDateString(),
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      department: booking.department || (booking.user && booking.user.department),
+      cancellationReason: reason
+    };
+
+    // Hard delete the booking document
+    await booking.deleteOne();
+
+    // Send cancellation emails (user + admin), but don't block response on failures
+    try {
+      await emailService.sendCancellationNotification(cancellationDetails);
+      await emailService.sendAdminCancellationNotification(cancellationDetails);
+      console.log('✅ Cancellation emails sent from admin route');
+    } catch (emailError) {
+      console.error('❌ Cancellation emails failed in admin route:', emailError);
+    }
+
     res.json({
-      message: 'Booking cancelled successfully',
-      booking
+      message: 'Booking cancelled and removed successfully'
     });
   } catch (error) {
     console.error('Error cancelling booking:', error);
