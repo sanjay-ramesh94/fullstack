@@ -11,28 +11,28 @@ const AdminHallSelection = () => {
     {
       id: 'video-conferencing-hall',
       name: "Video Conferencing Hall",
-      image: "/images/vchall.webp",
+      image: "/images/videoconferencinghall.jpeg",
       description: "State-of-the-art video conferencing facility equipped with modern technology for seamless virtual meetings and conferences. Perfect for corporate events, academic presentations, and international collaborations.",
       color: '#302b5b'
     },
     {
       id: 'convention-center',
       name: "Convention Center",
-      image: "/images/cclab.jpg",
+      image: "/images/conventioncenter.jpg",
       description: "Spacious convention center perfect for large gatherings, seminars, cultural events, and academic conferences. Features modern amenities and flexible seating arrangements for various event types.",
       color: '#4a4570'
     },
     {
       id: 'lab',
       name: "Lab",
-      image: "/images/lab.jpeg",
+      image: "/images/laboratory.jpeg",
       description: "Advanced laboratory equipped with cutting-edge tools for research and experiments. Ideal for scientific studies, workshops, and technical training sessions.",
       color: '#605785'
     },
     {
       id: 'mba-seminar-hall',
       name: "MBA Seminar Hall",
-      image: "/images/ablock.jpg",
+      image: "/images/mbaseminarhall.jpg",
       description: "Elegant seminar hall designed for MBA programs, guest lectures, and professional training. Offers comfortable seating and audio-visual equipment for interactive sessions.",
       color: '#76699a'
     }

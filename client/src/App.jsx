@@ -12,6 +12,10 @@ import VideoConferenceBookingPage from './pages/user/VideoConferenceBookingPage'
 import ConventionCenterBookingPage from './pages/user/ConventionCenterBookingPage';
 import LabBookingPage from './pages/user/LabBookingPage';
 import MBASeminarBookingPage from './pages/user/MBASeminarBookingPage';
+import VideoConferenceDetailsPage from './pages/user/VideoConferenceDetailsPage';
+import ConventionCenterDetailsPage from './pages/user/ConventionCenterDetailsPage';
+import LabDetailsPage from './pages/user/LabDetailsPage';
+import MBASeminarDetailsPage from './pages/user/MBASeminarDetailsPage';
 
 // Admin pages
 import AdminHomePage from './pages/admin/AdminHomePage';
@@ -43,6 +47,10 @@ function App() {
             <Route path="/user/convention-center-booking" element={<ConventionCenterBookingPage />} />
             <Route path="/user/lab-booking" element={<LabBookingPage />} />
             <Route path="/user/mba-seminar-booking" element={<MBASeminarBookingPage />} />
+            <Route path="/user/video-conference-details" element={<VideoConferenceDetailsPage />} />
+            <Route path="/user/convention-center-details" element={<ConventionCenterDetailsPage />} />
+            <Route path="/user/lab-details" element={<LabDetailsPage />} />
+            <Route path="/user/mba-seminar-details" element={<MBASeminarDetailsPage />} />
             
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminHomePage />} />
