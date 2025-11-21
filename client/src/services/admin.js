@@ -115,7 +115,7 @@ class AdminService {
         ...filters
       });
 
-      const response = await api.get(`/admin/export-bookings?${params}`, {
+      const response = await api.get(`/admin/analytics-export?${params}`, {
         responseType: 'blob'
       });
 
