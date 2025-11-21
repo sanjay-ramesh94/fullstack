@@ -199,6 +199,7 @@ const VideoConferenceAdmin = () => {
       fetchBookings();
       fetchDateEvents();
       fetchStats();
+      fetchBookedDates();
     } catch (error) {
       console.error('Error updating booking status:', error);
     }
@@ -210,6 +211,7 @@ const VideoConferenceAdmin = () => {
       fetchBookings();
       fetchDateEvents();
       fetchStats();
+      fetchBookedDates();
     } catch (error) {
       const status = error.response?.status;
       if (status === 404) {
@@ -218,6 +220,7 @@ const VideoConferenceAdmin = () => {
         fetchBookings();
         fetchDateEvents();
         fetchStats();
+        fetchBookedDates();
       } else {
         console.error('Error deleting booking:', error.response?.data || error.message);
       }

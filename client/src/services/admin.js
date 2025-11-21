@@ -108,6 +108,45 @@ class AdminService {
     }
   }
 
+  async exportAnalyticsBookings(format = 'csv', filters = {}) {
+    try {
+      const params = new URLSearchParams({
+        format,
+        ...filters
+      });
+
+      const response = await api.get(`/admin/export-bookings?${params}`, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `analytics-bookings-export-${timestamp}.${format}`;
+      link.setAttribute('download', filename);
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      return response.data;
+    } catch (error) {
+      // Normalize error so callers get a readable message, not a raw Blob
+      if (error.response) {
+        const status = error.response.status;
+        throw {
+          message:
+            (error.response.data && error.response.data.message) ||
+            `Export failed with status ${status}`
+        };
+      }
+      throw { message: 'Failed to export analytics bookings' };
+    }
+  }
+
   // Export hall-specific bookings
   async exportHallBookings(hallType, format = 'csv', filters = {}) {
     try {

@@ -2,6 +2,7 @@
 // src/components/admin/AdminAnalytics.jsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { adminService } from '../../services/admin';
 
 const AdminAnalytics = () => {
   const [analyticsData, setAnalyticsData] = useState({
@@ -15,44 +16,59 @@ const AdminAnalytics = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTimeframe, setSelectedTimeframe] = useState('6months');
 
-  // Mock data for demonstration (replace with actual API calls)
+  // Fetch analytics data from backend API
   useEffect(() => {
     const fetchAnalyticsData = async () => {
-      setLoading(true);
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock analytics data
-      const mockData = {
-        hallStats: [
-          { name: 'Video Conferencing Hall', bookings: 45, utilization: 78, color: '#302b5b' },
-          { name: 'Convention Center', bookings: 38, utilization: 65, color: '#4a4570' },
-          { name: 'Lab', bookings: 52, utilization: 89, color: '#605785' },
-          { name: 'MBA Seminar Hall', bookings: 31, utilization: 54, color: '#76699a' }
-        ],
-        monthlyTrends: [
-          { month: 'Jan', bookings: 42, growth: -5.2, events: 38 },
-          { month: 'Feb', bookings: 38, growth: -9.5, events: 35 },
-          { month: 'Mar', bookings: 55, growth: 44.7, events: 52 },
-          { month: 'Apr', bookings: 48, growth: -12.7, events: 45 },
-          { month: 'May', bookings: 62, growth: 29.2, events: 58 },
-          { month: 'Jun', bookings: 58, growth: -6.5, events: 54 }
-        ],
-        weeklyPatterns: [
-          { day: 'Mon', '9-12': 8, '12-15': 12, '15-18': 10 },
-          { day: 'Tue', '9-12': 10, '12-15': 15, '15-18': 8 },
-          { day: 'Wed', '9-12': 12, '12-15': 18, '15-18': 14 },
-          { day: 'Thu', '9-12': 9, '12-15': 16, '15-18': 11 },
-          { day: 'Fri', '9-12': 7, '12-15': 13, '15-18': 9 }
-        ],
-        totalBookings: 166,
-        activeHalls: 4,
-        utilizationRate: 71.5
-      };
-      
-      setAnalyticsData(mockData);
-      setLoading(false);
+      try {
+        setLoading(true);
+
+        const now = new Date();
+        const endDate = new Date(now);
+        const startDate = new Date(now);
+
+        switch (selectedTimeframe) {
+          case '1month':
+            startDate.setMonth(startDate.getMonth() - 1);
+            break;
+          case '3months':
+            startDate.setMonth(startDate.getMonth() - 3);
+            break;
+          case '6months':
+            startDate.setMonth(startDate.getMonth() - 6);
+            break;
+          case '1year':
+            startDate.setFullYear(startDate.getFullYear() - 1);
+            break;
+          default:
+            startDate.setMonth(startDate.getMonth() - 6);
+            break;
+        }
+
+        const data = await adminService.getBookingAnalytics(startDate, endDate);
+
+        setAnalyticsData({
+          hallStats: data.hallStats || [],
+          monthlyTrends: data.monthlyTrends || [],
+          weeklyPatterns: data.weeklyPatterns || [],
+          totalBookings: data.totalBookings || 0,
+          activeHalls:
+            typeof data.activeHalls === 'number' ? data.activeHalls : 4,
+          utilizationRate: data.utilizationRate || 0
+        });
+      } catch (error) {
+        console.error('Error fetching analytics data:', error);
+        setAnalyticsData((prev) => ({
+          ...prev,
+          hallStats: prev.hallStats || [],
+          monthlyTrends: prev.monthlyTrends || [],
+          weeklyPatterns: prev.weeklyPatterns || [],
+          totalBookings: prev.totalBookings || 0,
+          activeHalls: prev.activeHalls || 4,
+          utilizationRate: prev.utilizationRate || 0
+        }));
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchAnalyticsData();
@@ -61,6 +77,43 @@ const AdminAnalytics = () => {
   const handleLogout = () => {
     localStorage.removeItem('token');
     window.location.href = '/admin';
+  };
+
+  const handleExport = async () => {
+    try {
+      const now = new Date();
+      const endDate = new Date(now);
+      const startDate = new Date(now);
+
+      switch (selectedTimeframe) {
+        case '1month':
+          startDate.setMonth(startDate.getMonth() - 1);
+          break;
+        case '3months':
+          startDate.setMonth(startDate.getMonth() - 3);
+          break;
+        case '6months':
+          startDate.setMonth(startDate.getMonth() - 6);
+          break;
+        case '1year':
+          startDate.setFullYear(startDate.getFullYear() - 1);
+          break;
+        default:
+          startDate.setMonth(startDate.getMonth() - 6);
+          break;
+      }
+
+      await adminService.exportAnalyticsBookings('csv', {
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        status: 'all'
+      });
+    } catch (error) {
+      console.error('Error exporting analytics report:', error);
+      window.alert(
+        error?.message || 'Failed to export report. Please try again.'
+      );
+    }
   };
 
   if (loading) {
@@ -72,6 +125,61 @@ const AdminAnalytics = () => {
         </div>
       </div>
     );
+  }
+
+  const hasMonthlyTrends = analyticsData.monthlyTrends && analyticsData.monthlyTrends.length > 0;
+  const peakMonthlyBookings = hasMonthlyTrends
+    ? Math.max(...analyticsData.monthlyTrends.map((m) => m.bookings))
+    : 0;
+  const peakMonthEntry = hasMonthlyTrends
+    ? analyticsData.monthlyTrends.find((m) => m.bookings === peakMonthlyBookings)
+    : null;
+
+  const hasWeeklyPatterns = analyticsData.weeklyPatterns && analyticsData.weeklyPatterns.length > 0;
+
+  let peakHourLabel = 'N/A';
+  let peakHourBookings = 0;
+  let busiestDayLabel = 'N/A';
+  let busiestDayBookings = 0;
+
+  if (hasWeeklyPatterns) {
+    // Find peak hour slot across all days
+    let maxSlotCount = 0;
+    let maxSlot = null;
+    let maxDayForSlot = null;
+
+    analyticsData.weeklyPatterns.forEach((dayEntry) => {
+      ['9-12', '12-15', '15-18'].forEach((slot) => {
+        const count = dayEntry[slot] || 0;
+        if (count > maxSlotCount) {
+          maxSlotCount = count;
+          maxSlot = slot;
+          maxDayForSlot = dayEntry.day;
+        }
+      });
+    });
+
+    if (maxSlot) {
+      peakHourLabel = `${maxSlot} (${maxDayForSlot})`;
+      peakHourBookings = maxSlotCount;
+    }
+
+    // Find busiest day by total bookings
+    let maxDayTotal = 0;
+    let maxDayLabel = null;
+
+    analyticsData.weeklyPatterns.forEach((dayEntry) => {
+      const total = (dayEntry['9-12'] || 0) + (dayEntry['12-15'] || 0) + (dayEntry['15-18'] || 0);
+      if (total > maxDayTotal) {
+        maxDayTotal = total;
+        maxDayLabel = dayEntry.day;
+      }
+    });
+
+    if (maxDayLabel) {
+      busiestDayLabel = maxDayLabel;
+      busiestDayBookings = maxDayTotal;
+    }
   }
 
   return (
@@ -201,10 +309,10 @@ const AdminAnalytics = () => {
                   <div>
                     <div className="text-sm text-gray-600">Peak Month</div>
                     <div className="text-xl font-bold text-blue-600">
-                      {analyticsData.monthlyTrends.find(m => m.bookings === Math.max(...analyticsData.monthlyTrends.map(month => month.bookings)))?.month}
+                      {peakMonthEntry ? peakMonthEntry.month : 'N/A'}
                     </div>
                     <div className="text-sm text-blue-500">
-                      {Math.max(...analyticsData.monthlyTrends.map(m => m.bookings))} bookings
+                      {hasMonthlyTrends ? `${peakMonthlyBookings} bookings` : 'No data'}
                     </div>
                   </div>
                   <div className="text-2xl">📈</div>
@@ -216,8 +324,12 @@ const AdminAnalytics = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm text-gray-600">Peak Hours</div>
-                    <div className="text-xl font-bold text-green-600">2-4 PM</div>
-                    <div className="text-sm text-green-500">85% utilization</div>
+                    <div className="text-xl font-bold text-green-600">
+                      {hasWeeklyPatterns ? peakHourLabel : 'N/A'}
+                    </div>
+                    <div className="text-sm text-green-500">
+                      {hasWeeklyPatterns ? `${peakHourBookings} bookings` : 'No data'}
+                    </div>
                   </div>
                   <div className="text-2xl">⏰</div>
                 </div>
@@ -228,8 +340,12 @@ const AdminAnalytics = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm text-gray-600">Busiest Day</div>
-                    <div className="text-xl font-bold text-purple-600">Wednesday</div>
-                    <div className="text-sm text-purple-500">18 avg bookings</div>
+                    <div className="text-xl font-bold text-purple-600">
+                      {hasWeeklyPatterns ? busiestDayLabel : 'N/A'}
+                    </div>
+                    <div className="text-sm text-purple-500">
+                      {hasWeeklyPatterns ? `${busiestDayBookings} bookings` : 'No data'}
+                    </div>
                   </div>
                   <div className="text-2xl">📅</div>
                 </div>
@@ -241,7 +357,10 @@ const AdminAnalytics = () => {
         {/* Action Buttons */}
         <div className="mt-8 text-center">
           <div className="inline-flex space-x-4">
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors flex items-center">
+            <button
+              onClick={handleExport}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors flex items-center"
+            >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>

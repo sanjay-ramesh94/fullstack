@@ -2,6 +2,10 @@
 // routes/admin.js
 const express = require('express');
 const Booking = require('../models/Booking');
+const ConventionCenterBooking = require('../models/ConventionCenterBooking');
+const LabBooking = require('../models/LabBooking');
+const MBASeminarBooking = require('../models/MBASeminarBooking');
+const VideoConferenceBooking = require('../models/VideoConferenceBooking');
 const auth = require('../middleware/auth');
 const emailService = require('../services/emailService');
 
@@ -447,6 +451,181 @@ router.get('/dashboard-stats', auth, async (req, res) => {
   }
 });
 
+// Get aggregated booking analytics across all halls
+router.get('/analytics', auth, async (req, res) => {
+  try {
+    if (req.user.type !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const { startDate, endDate } = req.query;
+
+    let start = null;
+    let end = null;
+
+    if (startDate && endDate) {
+      start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+    }
+
+    const baseMatch = { isActive: true, status: { $ne: 'cancelled' } };
+    const dateFilter = start && end ? { date: { $gte: start, $lte: end } } : {};
+    const matchQuery = { ...baseMatch, ...dateFilter };
+
+    const monthlyPipeline = [
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$date' },
+            month: { $month: '$date' }
+          },
+          bookings: { $sum: 1 }
+        }
+      }
+    ];
+
+    const [
+      vcCount,
+      ccCount,
+      labCount,
+      mbaCount,
+      vcDates,
+      ccDates,
+      labDates,
+      mbaDates,
+      vcMonthly,
+      ccMonthly,
+      labMonthly,
+      mbaMonthly
+    ] = await Promise.all([
+      VideoConferenceBooking.countDocuments(matchQuery),
+      ConventionCenterBooking.countDocuments(matchQuery),
+      LabBooking.countDocuments(matchQuery),
+      MBASeminarBooking.countDocuments(matchQuery),
+      VideoConferenceBooking.distinct('date', matchQuery),
+      ConventionCenterBooking.distinct('date', matchQuery),
+      LabBooking.distinct('date', matchQuery),
+      MBASeminarBooking.distinct('date', matchQuery),
+      VideoConferenceBooking.aggregate(monthlyPipeline),
+      ConventionCenterBooking.aggregate(monthlyPipeline),
+      LabBooking.aggregate(monthlyPipeline),
+      MBASeminarBooking.aggregate(monthlyPipeline)
+    ]);
+
+    const totalBookings = vcCount + ccCount + labCount + mbaCount;
+
+    const getDistinctDayCount = (dates) => {
+      const set = new Set(
+        dates.map((d) => new Date(d).toISOString().split('T')[0])
+      );
+      return set.size;
+    };
+
+    let totalDays = null;
+    if (start && end) {
+      totalDays = Math.max(
+        1,
+        Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      );
+    }
+
+    const computeUtilization = (dates) => {
+      if (!totalDays) return 0;
+      const distinctCount = getDistinctDayCount(dates);
+      return Math.round((distinctCount / totalDays) * 100);
+    };
+
+    const hallStats = [
+      {
+        name: 'Video Conferencing Hall',
+        bookings: vcCount,
+        utilization: computeUtilization(vcDates),
+        color: '#302b5b'
+      },
+      {
+        name: 'Convention Center',
+        bookings: ccCount,
+        utilization: computeUtilization(ccDates),
+        color: '#4a4570'
+      },
+      {
+        name: 'Lab',
+        bookings: labCount,
+        utilization: computeUtilization(labDates),
+        color: '#605785'
+      },
+      {
+        name: 'MBA Seminar Hall',
+        bookings: mbaCount,
+        utilization: computeUtilization(mbaDates),
+        color: '#76699a'
+      }
+    ];
+
+    const activeHalls = hallStats.filter((hall) => hall.bookings > 0).length || 4;
+
+    const utilizationRate =
+      hallStats.length > 0
+        ? Math.round(
+            hallStats.reduce((sum, hall) => sum + hall.utilization, 0) /
+              hallStats.length
+          )
+        : 0;
+
+    const monthlyMap = new Map();
+
+    const mergeMonthly = (docs) => {
+      docs.forEach((doc) => {
+        const year = doc._id.year;
+        const month = doc._id.month;
+        const key = `${year}-${month}`;
+        const current = monthlyMap.get(key) || 0;
+        monthlyMap.set(key, current + doc.bookings);
+      });
+    };
+
+    mergeMonthly(vcMonthly);
+    mergeMonthly(ccMonthly);
+    mergeMonthly(labMonthly);
+    mergeMonthly(mbaMonthly);
+
+    const monthlyTrends = Array.from(monthlyMap.entries())
+      .sort((a, b) => {
+        const [yearA, monthA] = a[0].split('-').map(Number);
+        const [yearB, monthB] = b[0].split('-').map(Number);
+        if (yearA !== yearB) return yearA - yearB;
+        return monthA - monthB;
+      })
+      .map(([key, bookings]) => {
+        const [year, month] = key.split('-').map(Number);
+        const label = new Date(year, month - 1, 1).toLocaleString('en-US', {
+          month: 'short'
+        });
+        return {
+          month: label,
+          bookings,
+          growth: 0,
+          events: bookings
+        };
+      });
+
+    res.json({
+      totalBookings,
+      activeHalls,
+      utilizationRate,
+      hallStats,
+      monthlyTrends,
+      weeklyPatterns: []
+    });
+  } catch (error) {
+    console.error('Error fetching analytics data:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Delete/Cancel booking (admin) - HARD DELETE with cancellation emails
 router.delete('/booking/:id', auth, async (req, res) => {
   try {
@@ -543,25 +722,101 @@ router.get('/booking/:id', auth, async (req, res) => {
   }
 });
 
-// Export bookings data
-router.get('/export-bookings', auth, async (req, res) => {
+router.get('/analytics-export', auth, async (req, res) => {
   try {
     if (req.user.type !== 'admin') {
       return res.status(403).json({ message: 'Admin access required' });
     }
 
-    const { format = 'csv', startDate, endDate, status, dateRange } = req.query;
-    
-    // Build filter query
-    let matchQuery = { isActive: true };
-    
-    if (startDate && endDate) {
-      matchQuery.date = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
+    const { format = 'csv', startDate, endDate, status = 'all' } = req.query;
+
+    if (format !== 'csv') {
+      return res.status(400).json({ message: 'Only CSV format is supported for analytics export' });
     }
-    
+
+    let matchQuery = { isActive: true, status: { $ne: 'cancelled' } };
+
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      matchQuery.date = { $gte: start, $lte: end };
+    }
+
+    if (status && status !== 'all') {
+      matchQuery.status = status;
+    }
+
+    const [
+      vcBookings,
+      ccBookings,
+      labBookings,
+      mbaBookings
+    ] = await Promise.all([
+      VideoConferenceBooking.find(matchQuery)
+        .populate('user', 'name department email phone')
+        .sort({ date: 1, startTime: 1 })
+        .lean(),
+      ConventionCenterBooking.find(matchQuery)
+        .populate('user', 'name department email phone')
+        .sort({ date: 1, startTime: 1 })
+        .lean(),
+      LabBooking.find(matchQuery)
+        .populate('user', 'name department email phone')
+        .sort({ date: 1, startTime: 1 })
+        .lean(),
+      MBASeminarBooking.find(matchQuery)
+        .populate('user', 'name department email phone')
+        .sort({ date: 1, startTime: 1 })
+        .lean()
+    ]);
+
+    const allBookings = [
+      ...vcBookings.map((booking) => ({ ...booking, __hallName: 'Video Conference Hall' })),
+      ...ccBookings.map((booking) => ({ ...booking, __hallName: 'Convention Center' })),
+      ...labBookings.map((booking) => ({ ...booking, __hallName: 'Lab' })),
+      ...mbaBookings.map((booking) => ({ ...booking, __hallName: 'MBA Seminar Hall' }))
+    ];
+
+    const csvHeaders = [
+      'ID',
+      'Name',
+      'Department',
+      'Email',
+      'Phone',
+      'Date',
+      'Start Time',
+      'End Time',
+      'Hall',
+      'Purpose',
+      'Status',
+      'Created At'
+    ].join(',');
+
+    const csvRows = allBookings.map((booking) => [
+      booking._id,
+      booking.user?.name || booking.name || 'N/A',
+      booking.user?.department || booking.department || 'N/A',
+      booking.user?.email || 'N/A',
+      booking.user?.phone || 'N/A',
+      new Date(booking.date).toISOString().split('T')[0],
+      booking.startTime,
+      booking.endTime,
+      booking.__hallName,
+      booking.purpose,
+      booking.status,
+      booking.createdAt ? booking.createdAt.toISOString() : ''
+    ]
+      .map((field) => `"${field}"`)
+      .join(','));
+
+    const csvContent = [csvHeaders, ...csvRows].join('\n');
+
+    res.header('Content-Type', 'text/csv');
+    res.attachment('analytics-bookings-export.csv');
+    return res.send(csvContent);
+  } catch (error) {
     if (status && status !== 'all') {
       matchQuery.status = status;
     }
@@ -570,13 +825,18 @@ router.get('/export-bookings', auth, async (req, res) => {
     if (!startDate && !endDate && dateRange && dateRange !== 'all') {
       const today = new Date();
       switch (dateRange) {
-        case 'today':
-          const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        case 'today': {
+          const todayStart = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            today.getDate()
+          );
           const todayEnd = new Date(todayStart);
           todayEnd.setDate(todayEnd.getDate() + 1);
           matchQuery.date = { $gte: todayStart, $lt: todayEnd };
           break;
-        case 'week':
+        }
+        case 'week': {
           const weekStart = new Date(today);
           weekStart.setDate(today.getDate() - today.getDay());
           weekStart.setHours(0, 0, 0, 0);
@@ -584,60 +844,126 @@ router.get('/export-bookings', auth, async (req, res) => {
           weekEnd.setDate(weekStart.getDate() + 7);
           matchQuery.date = { $gte: weekStart, $lt: weekEnd };
           break;
-        case 'month':
+        }
+        case 'month': {
           const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
           const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 1);
           matchQuery.date = { $gte: monthStart, $lt: monthEnd };
           break;
-        case 'year':
+        }
+        case 'year': {
           const yearStart = new Date(today.getFullYear(), 0, 1);
           const yearEnd = new Date(today.getFullYear() + 1, 0, 1);
           matchQuery.date = { $gte: yearStart, $lt: yearEnd };
           break;
+        }
+        default:
+          break;
       }
     }
 
-    // Fetch bookings with user data
-    const bookings = await Booking.find(matchQuery)
-      .populate('user', 'name department email phone')
-      .sort({ date: 1, startTime: 1 });
+    // Fetch bookings from generic and hall-specific collections
+    const [
+      genericBookings,
+      vcBookings,
+      ccBookings,
+      labBookings,
+      mbaBookings
+    ] = await Promise.all([
+      Booking.find(matchQuery)
+        .populate('user', 'name department email phone')
+        .sort({ date: 1, startTime: 1 })
+        .lean(),
+      VideoConferenceBooking.find(matchQuery)
+        .populate('user', 'name department email phone')
+        .sort({ date: 1, startTime: 1 })
+        .lean(),
+      ConventionCenterBooking.find(matchQuery)
+        .populate('user', 'name department email phone')
+        .sort({ date: 1, startTime: 1 })
+        .lean(),
+      LabBooking.find(matchQuery)
+        .populate('user', 'name department email phone')
+        .sort({ date: 1, startTime: 1 })
+        .lean(),
+      MBASeminarBooking.find(matchQuery)
+        .populate('user', 'name department email phone')
+        .sort({ date: 1, startTime: 1 })
+        .lean()
+    ]);
+
+    const allBookings = [
+      ...genericBookings.map((booking) => ({
+        ...booking,
+        __hallName: booking.hallName || 'General Hall'
+      })),
+      ...vcBookings.map((booking) => ({
+        ...booking,
+        __hallName: 'Video Conference Hall'
+      })),
+      ...ccBookings.map((booking) => ({
+        ...booking,
+        __hallName: 'Convention Center'
+      })),
+      ...labBookings.map((booking) => ({
+        ...booking,
+        __hallName: 'Lab'
+      })),
+      ...mbaBookings.map((booking) => ({
+        ...booking,
+        __hallName: 'MBA Seminar Hall'
+      }))
+    ];
 
     if (format === 'csv') {
       // Generate CSV
       const csvHeaders = [
-        'ID', 'Name', 'Department', 'Email', 'Phone', 'Date', 'Start Time', 
-        'End Time', 'Hall', 'Purpose', 'Status', 'Created At'
+        'ID',
+        'Name',
+        'Department',
+        'Email',
+        'Phone',
+        'Date',
+        'Start Time',
+        'End Time',
+        'Hall',
+        'Purpose',
+        'Status',
+        'Created At'
       ].join(',');
-      
-      const csvRows = bookings.map(booking => [
+
+      const csvRows = allBookings.map((booking) => [
         booking._id,
-        booking.user?.name || 'N/A',
-        booking.user?.department || 'N/A',
+        booking.user?.name || booking.name || 'N/A',
+        booking.user?.department || booking.department || 'N/A',
         booking.user?.email || 'N/A',
         booking.user?.phone || 'N/A',
         new Date(booking.date).toISOString().split('T')[0],
         booking.startTime,
         booking.endTime,
-        booking.hallName || 'General Hall',
+        booking.__hallName,
         booking.purpose,
         booking.status,
-        booking.createdAt.toISOString()
-      ].map(field => `"${field}"`).join(','));
-      
+        booking.createdAt ? booking.createdAt.toISOString() : ''
+      ]
+        .map((field) => `"${field}"`)
+        .join(','));
+
       const csvContent = [csvHeaders, ...csvRows].join('\n');
-      
+
       res.header('Content-Type', 'text/csv');
       res.attachment('bookings-export.csv');
       return res.send(csvContent);
     } else if (format === 'xlsx') {
       // For Excel export, we'll need to install xlsx package
       // For now, return JSON with instructions
-      return res.status(501).json({ 
-        message: 'Excel export not implemented yet. Please install xlsx package and implement.' 
+      return res.status(501).json({
+        message:
+          'Excel export not implemented yet. Please install xlsx package and implement.'
       });
     } else {
       // Default to JSON
-      res.json(bookings);
+      res.json(allBookings);
     }
   } catch (error) {
     console.error('Export error:', error);
