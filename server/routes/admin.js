@@ -612,13 +612,77 @@ router.get('/analytics', auth, async (req, res) => {
         };
       });
 
+    // Build weeklyPatterns for Peak Hours and Busiest Day
+    const [
+      vcWeeklyDocs,
+      ccWeeklyDocs,
+      labWeeklyDocs,
+      mbaWeeklyDocs
+    ] = await Promise.all([
+      VideoConferenceBooking.find(matchQuery).select('date startTime').lean(),
+      ConventionCenterBooking.find(matchQuery).select('date startTime').lean(),
+      LabBooking.find(matchQuery).select('date startTime').lean(),
+      MBASeminarBooking.find(matchQuery).select('date startTime').lean()
+    ]);
+
+    const dayOrder = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const weeklyMap = new Map();
+
+    const addToWeeklyMap = (doc) => {
+      if (!doc || !doc.date || !doc.startTime) return;
+
+      const dateObj = new Date(doc.date);
+      if (Number.isNaN(dateObj.getTime())) return;
+
+      const dayLabel = dayOrder[dateObj.getDay()];
+      const [hourStr, minuteStr] = doc.startTime.split(':');
+      const hour = parseInt(hourStr, 10);
+      const minute = parseInt(minuteStr || '0', 10);
+      if (Number.isNaN(hour)) return;
+
+      const timeValue = hour + minute / 60;
+      let slot = null;
+      if (timeValue < 12) {
+        slot = '9-12';
+      } else if (timeValue < 15) {
+        slot = '12-15';
+      } else {
+        slot = '15-18';
+      }
+
+      const existing =
+        weeklyMap.get(dayLabel) || {
+          day: dayLabel,
+          '9-12': 0,
+          '12-15': 0,
+          '15-18': 0
+        };
+
+      if (slot) {
+        existing[slot] += 1;
+      }
+
+      weeklyMap.set(dayLabel, existing);
+    };
+
+    [
+      ...vcWeeklyDocs,
+      ...ccWeeklyDocs,
+      ...labWeeklyDocs,
+      ...mbaWeeklyDocs
+    ].forEach(addToWeeklyMap);
+
+    const weeklyPatterns = Array.from(weeklyMap.values()).sort(
+      (a, b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day)
+    );
+
     res.json({
       totalBookings,
       activeHalls,
       utilizationRate,
       hallStats,
       monthlyTrends,
-      weeklyPatterns: []
+      weeklyPatterns
     });
   } catch (error) {
     console.error('Error fetching analytics data:', error);
