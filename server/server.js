@@ -33,6 +33,11 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hall_book
   useUnifiedTopology: true,
 });
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/booking', bookingRoutes);
